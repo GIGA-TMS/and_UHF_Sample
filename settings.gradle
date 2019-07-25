@@ -1,0 +1,2 @@
+include ':app', ':UHF'
+rootProject.name = 'and_uhf_sample'

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/inventory"
+        android:enabled="true"
+        android:icon="@android:drawable/alert_light_frame"
+        android:title="Inventory" />
+    <item
+        android:id="@+id/read_write_tag"
+        android:enabled="true"
+        android:icon="@android:drawable/alert_dark_frame"
+        android:title="Read/Write Tag" />
+    <item
+        android:id="@+id/setting"
+        android:enabled="true"
+        android:icon="@drawable/ic_menu_manage"
+        android:title="Setting" />
+    <item
+        android:id="@+id/advance_setting"
+        android:enabled="true"
+        android:icon="@drawable/ic_menu_manage"
+        android:title="Advanced" />
+</menu>
