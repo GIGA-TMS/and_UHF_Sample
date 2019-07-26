@@ -16,15 +16,13 @@ repositories {
 
 
 android {
-    String verCode = new Date().format("yyyyMMdd")
-    String buildVersion = "13"
     compileSdkVersion 28
     defaultConfig {
         applicationId "com.gigatms.ts800_sample"
         minSdkVersion 21
         targetSdkVersion 28
-        versionCode Integer.parseInt(verCode + buildVersion)
-        versionName "2.0.0"
+        versionCode Integer.parseInt( new Date().format("yyyyMMdd"))
+        versionName "2.0.0.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
