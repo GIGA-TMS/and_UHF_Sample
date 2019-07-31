@@ -1,4 +1,4 @@
-package com.gigatms.ts800;
+package com.gigatms.uhf;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;

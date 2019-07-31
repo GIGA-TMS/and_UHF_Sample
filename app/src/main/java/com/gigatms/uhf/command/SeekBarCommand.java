@@ -1,9 +1,8 @@
-package com.gigatms.ts800.command;
+package com.gigatms.uhf.command;
 
-import static com.gigatms.ts800.CommandRecyclerViewAdapter.SEEK_BAR;
+import static com.gigatms.uhf.CommandRecyclerViewAdapter.SEEK_BAR;
 
 public class SeekBarCommand extends Command {
-    private OnGetValues mOnGetValue;
     private int mMinValue;
     private int mMaxValue;
     private int mSelected;
@@ -18,11 +17,6 @@ public class SeekBarCommand extends Command {
         super(title, rightBtnName, leftBtnName);
         mMaxValue = maxValue;
         mMinValue = minValue;
-    }
-
-
-    public interface OnGetValues {
-        void onGetValue(int value);
     }
 
     public int getViewType() {
@@ -43,13 +37,5 @@ public class SeekBarCommand extends Command {
 
     public void setSelected(int selected) {
         mSelected = selected;
-    }
-
-    public void didGetVale(int value) {
-        mOnGetValue.onGetValue(value);
-    }
-
-    public void setOnGetValue(OnGetValues onGetValue) {
-        mOnGetValue = onGetValue;
     }
 }

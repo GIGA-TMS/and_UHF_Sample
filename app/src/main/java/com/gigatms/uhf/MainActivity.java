@@ -1,4 +1,4 @@
-package com.gigatms.ts800;
+package com.gigatms.uhf;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -23,13 +23,16 @@ import android.widget.Button;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import com.crashlytics.android.Crashlytics;
 import com.gigatms.BaseDevice;
 import com.gigatms.tools.GLog;
+
+import io.fabric.sdk.android.Fabric;
 
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 import static android.support.v4.content.PermissionChecker.PERMISSION_GRANTED;
-import static com.gigatms.ts800.BaseScanFragment.DEBUG;
+import static com.gigatms.uhf.BaseScanFragment.DEBUG;
 
 public class MainActivity extends AppCompatActivity implements DebugFragment.DebugFragmentListener {
 
@@ -52,6 +55,7 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Fabric.with(this, new Crashlytics());
         setContentView(R.layout.activity_main);
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.fragment_container, new DeviceScanFragment())
@@ -140,12 +144,7 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
         mDebugMode = mDebugSharedPreferences.getBoolean(DEBUG, false);
         switchDebugView(mDebugMode);
         setTbLogView();
-        mTvInformation.setOnLongClickListener(new View.OnLongClickListener() {
-            @Override
-            public boolean onLongClick(View v) {
-                return false;
-            }
-        });
+        mTvInformation.setOnLongClickListener(v -> false);
     }
 
     private void setTbLogView() {
@@ -162,48 +161,41 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
             }
         });
 
-        mTvLog.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                gestureDetector.onTouchEvent(event);
-                return false;
-            }
+        mTvLog.setOnTouchListener((v, event) -> {
+            gestureDetector.onTouchEvent(event);
+            return false;
         });
     }
 
     private void setDebugButtonListener() {
-        mBtnDebug.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //Debug mode
-                mTime = System.currentTimeMillis();
-                if (mFirstClick) {
+        mBtnDebug.setOnClickListener(v -> {
+            //Debug mode
+            mTime = System.currentTimeMillis();
+            if (mFirstClick) {
+                mClickDebugCount++;
+                mTemp = System.currentTimeMillis();
+                mFirstClick = false;
+            } else {
+                Log.d(TAG, "onClick: mTime - mTemp: " + (mTime - mTemp));
+                if (mTime - mTemp < 2000) {
+                    mTemp = mTime;
                     mClickDebugCount++;
-                    mTemp = System.currentTimeMillis();
-                    mFirstClick = false;
-                } else {
-                    Log.d(TAG, "onClick: mTime - mTemp: " + (mTime - mTemp));
-                    if (mTime - mTemp < 2000) {
-                        mTemp = mTime;
-                        mClickDebugCount++;
-                        if (mClickDebugCount == 10) {
-                            mDebugMode = !mDebugMode;
-                            mDebugSharedPreferences.edit().putBoolean(DEBUG, mDebugMode).apply();
-                            switchDebugView(mDebugMode);
-                            clearDebugCountData();
-
-                        }
-                    } else {
+                    if (mClickDebugCount == 10) {
+                        mDebugMode = !mDebugMode;
+                        mDebugSharedPreferences.edit().putBoolean(DEBUG, mDebugMode).apply();
+                        switchDebugView(mDebugMode);
                         clearDebugCountData();
-                    }
-                }
-                Log.d(TAG, "onClick: " +
-                        "\nmTime:" + mTime
-                        + "\nmTemp:" + mTemp
-                        + "\nclick debug count: " + mClickDebugCount
-                        + "\nfirst click: " + mFirstClick);
-            }
 
+                    }
+                } else {
+                    clearDebugCountData();
+                }
+            }
+            Log.d(TAG, "onClick: " +
+                    "\nmTime:" + mTime
+                    + "\nmTemp:" + mTemp
+                    + "\nclick debug count: " + mClickDebugCount
+                    + "\nfirst click: " + mFirstClick);
         });
     }
 
@@ -226,15 +218,12 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
     }
 
     private void updateLog(@NonNull final String message) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (mTvLog.getText().toString().length() > 30000) {
-                    mTvLog.setText("");
-                }
-                mTvLog.append(message + "\n");
-                mScrollView.fullScroll(View.FOCUS_DOWN);
+        runOnUiThread(() -> {
+            if (mTvLog.getText().toString().length() > 30000) {
+                mTvLog.setText("");
             }
+            mTvLog.append(message + "\n");
+            mScrollView.fullScroll(View.FOCUS_DOWN);
         });
     }
 
@@ -256,12 +245,9 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
     public void onUpdateDebugInformation(final String message, final int resColor) {
         if (mDebugMode) {
             GLog.d(TAG, message);
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    mTvInformation.setText(message);
-                    mTvInformation.setBackgroundColor(getResources().getColor(resColor));
-                }
+            runOnUiThread(() -> {
+                mTvInformation.setText(message);
+                mTvInformation.setBackgroundColor(getResources().getColor(resColor));
             });
         }
     }

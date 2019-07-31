@@ -1,4 +1,4 @@
-package com.gigatms.ts800;
+package com.gigatms.uhf;
 
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
@@ -27,6 +27,7 @@ import com.gigatms.ConnectivitySimpleManager;
 import com.gigatms.ScanDebugCallback;
 import com.gigatms.ScannerCallback;
 import com.gigatms.tools.GLog;
+import com.squareup.leakcanary.RefWatcher;
 
 import java.util.Objects;
 
@@ -43,7 +44,7 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
     private RecyclerView mRecyclerView;
     protected RadioGroup mRgProduct;
     protected RadioGroup mRgInterface;
-    private ConnectivitySimpleManager connectivitySimpleManager;
+    private ConnectivitySimpleManager mConnectivitySimpleManager;
 
     public abstract BaseScanner newScanner();
 
@@ -52,21 +53,15 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_device_scan, container, false);
         mBaseScanner = newScanner();
-        mBaseScanner.setScanDebugCallback(this);
         findViews(view);
-        connectivitySimpleManager = new ConnectivitySimpleManager(getContext());
+        mConnectivitySimpleManager = new ConnectivitySimpleManager();
         return view;
     }
 
     private void setViews() {
         Objects.requireNonNull(getActivity()).setTitle(getString(R.string.app_name));
         initRecyclerView();
-        mBtnScan.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startScan();
-            }
-        });
+        mBtnScan.setOnClickListener(v -> startScan());
     }
 
     void startScan() {
@@ -109,7 +104,6 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
             mDevicesAdapter.addDevice(ConnectedDevices.getInstance().get(macAddress));
         }
         mRecyclerView.setLayoutManager(linearLayoutManager);
-
         DividerItemDecoration dividerItemDecoration = new DividerItemDecoration(mRecyclerView.getContext(),
                 linearLayoutManager.getOrientation());
         mRecyclerView.addItemDecoration(dividerItemDecoration);
@@ -118,15 +112,11 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
     private void initDevicesAdapter() {
         if (mDevicesAdapter == null) {
             mDevicesAdapter = new DevicesAdapter(getContext());
-            mDevicesAdapter.setControlCallback(new DevicesAdapter.OnControlCallback() {
-                @Override
-                public void onControlClicked(BaseDevice baseDevice) {
+            mDevicesAdapter.setControlCallback(baseDevice ->
                     Objects.requireNonNull(getActivity()).getSupportFragmentManager().beginTransaction()
                             .replace(R.id.fragment_container, DeviceControlFragment.newFragment(baseDevice.getDeviceMacAddr()))
                             .addToBackStack(null)
-                            .commit();
-                }
-            });
+                            .commit());
         } else {
             mDevicesAdapter.clear();
         }
@@ -143,12 +133,9 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
         final RadioButton radioButton = new RadioButton(getContext());
         radioButton.setText(text);
         radioButton.setId(id);
-        radioButton.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                int checkedProduct = radioButton.getId();
-                setClassVersion((byte) checkedProduct);
-            }
+        radioButton.setOnClickListener(v -> {
+            int checkedProduct = radioButton.getId();
+            setClassVersion((byte) checkedProduct);
         });
         mRgProduct.addView(radioButton);
     }
@@ -167,7 +154,8 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
     public void onResume() {
         super.onResume();
         setViews();
-        connectivitySimpleManager.routeNetworkRequestsThroughWifi(null);
+        mBaseScanner.setScanDebugCallback(this);
+        mConnectivitySimpleManager.routeNetworkRequestsThroughWifi(null, getContext());
     }
 
     @Override
@@ -176,7 +164,9 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
         Log.d(TAG, "onPause: ");
         if (mBaseScanner != null && isCommunicationEnable()) {
             mBaseScanner.stopScan();
+            mBaseScanner.setScanDebugCallback(null);
         }
+        mConnectivitySimpleManager.unregisterNetworkCallback();
         mDevicesAdapter.clear();
         mRecyclerView.setAdapter(null);
     }
@@ -186,12 +176,7 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
         Log.d(TAG, "didDiscoveredDevice: ");
         String message = baseDevice.getDeviceName() + "\nMac Address: " + baseDevice.getDeviceMacAddr();
         if (getActivity() != null) {
-            getActivity().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    mDevicesAdapter.addDevice(baseDevice);
-                }
-            });
+            getActivity().runOnUiThread(() -> mDevicesAdapter.addDevice(baseDevice));
             if (mDebugFragmentListener != null) {
                 if (baseDevice.getCommunicationType().equals(TCP)) {
                     message += ("\nIP: " + baseDevice.getDeviceIp());
@@ -222,7 +207,11 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
     }
 
     @Override
-    public void onStop() {
-        super.onStop();
+    public void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "onDestroy: ");
+        mBaseScanner.onDestroy();
+        RefWatcher refWatcher = LeakWatcherApplication.getRefWatcher(getActivity());
+        refWatcher.watch(this);
     }
 }

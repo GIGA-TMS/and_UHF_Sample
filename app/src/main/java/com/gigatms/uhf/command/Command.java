@@ -1,8 +1,8 @@
-package com.gigatms.ts800.command;
+package com.gigatms.uhf.command;
 
 import android.view.View;
 
-import static com.gigatms.ts800.CommandRecyclerViewAdapter.BASE;
+import static com.gigatms.uhf.CommandRecyclerViewAdapter.BASE;
 
 public class Command {
     private static final String TAG = Command.class.getSimpleName();
@@ -13,6 +13,7 @@ public class Command {
     private boolean mHasLeftBtn;
     private View.OnClickListener mRightOnClickListener;
     private View.OnClickListener mWriteOnClickListener;
+    private int position;
 
     public Command(String title) {
         mTitle = title;
@@ -33,7 +34,14 @@ public class Command {
             mRightBtnName = rightBtnName;
             mHasRightBtn = true;
         }
+    }
 
+    public int getPosition() {
+        return position;
+    }
+
+    public void setPosition(int position) {
+        this.position = position;
     }
 
     public int getViewType() {

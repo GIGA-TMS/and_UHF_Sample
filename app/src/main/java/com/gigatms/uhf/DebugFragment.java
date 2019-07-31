@@ -1,4 +1,4 @@
-package com.gigatms.ts800;
+package com.gigatms.uhf;
 
 import android.support.v4.app.Fragment;
 

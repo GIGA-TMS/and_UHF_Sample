@@ -1,4 +1,4 @@
-package com.gigatms.ts800;
+package com.gigatms.uhf;
 
 import com.gigatms.BaseDevice;
 import com.gigatms.tools.GLog;

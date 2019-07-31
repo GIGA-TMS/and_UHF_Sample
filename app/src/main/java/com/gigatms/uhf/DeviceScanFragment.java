@@ -1,4 +1,4 @@
-package com.gigatms.ts800;
+package com.gigatms.uhf;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
@@ -8,6 +8,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,6 +18,7 @@ import com.gigatms.CommunicationType;
 import com.gigatms.UHF.UhfClassVersion;
 import com.gigatms.UHFScanner;
 import com.gigatms.tools.GLog;
+import com.squareup.leakcanary.RefWatcher;
 
 import java.util.Arrays;
 
@@ -62,19 +64,9 @@ public class DeviceScanFragment extends BaseScanFragment{
         for (CommunicationType type : CommunicationType.values()) {
             if (type != UDP) {
                 if (type == TCP) {
-                    addRgInterface("Wi-Fi", type.ordinal(), new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            mBaseScanner.setCommunicationType(UDP);
-                        }
-                    });
+                    addRgInterface("Wi-Fi", type.ordinal(), v -> mBaseScanner.setCommunicationType(UDP));
                 } else {
-                    addRgInterface(type.name(), type.ordinal(), new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            mBaseScanner.setCommunicationType(BLE);
-                        }
-                    });
+                    addRgInterface(type.name(), type.ordinal(), v -> mBaseScanner.setCommunicationType(BLE));
                 }
             }
         }
@@ -114,4 +106,11 @@ public class DeviceScanFragment extends BaseScanFragment{
         }
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "onDestroy: ");
+        RefWatcher refWatcher = LeakWatcherApplication.getRefWatcher(getActivity());
+        refWatcher.watch(this);
+    }
 }
