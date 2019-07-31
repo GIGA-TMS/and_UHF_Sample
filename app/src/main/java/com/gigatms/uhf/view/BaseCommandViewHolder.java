@@ -1,4 +1,4 @@
-package com.gigatms.ts800.view;
+package com.gigatms.uhf.view;
 
 import android.support.annotation.NonNull;
 import android.support.v7.widget.RecyclerView;
@@ -6,8 +6,8 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.gigatms.ts800.R;
-import com.gigatms.ts800.command.Command;
+import com.gigatms.uhf.R;
+import com.gigatms.uhf.command.Command;
 
 public class BaseCommandViewHolder extends RecyclerView.ViewHolder {
     private Button mBtnRight;
@@ -22,6 +22,7 @@ public class BaseCommandViewHolder extends RecyclerView.ViewHolder {
     }
 
     public void bindView(final Command command) {
+
         mTvTitle.setText(command.getTitle());
 
         mBtnRight.setText(command.getRightBtnName());

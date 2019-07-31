@@ -121,12 +121,15 @@
 
     <TextView
         android:id="@+id/textView27"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:gravity="right"
         android:text="0: Reserve, 1: EPC, 2: TID, 3: User"
         android:textColor="@color/colorAccent"
         app:layout_constraintBottom_toBottomOf="@+id/textView26"
         app:layout_constraintEnd_toEndOf="@+id/et_tag_password"
+        app:layout_constraintStart_toEndOf="@+id/textView26"
         app:layout_constraintTop_toTopOf="@+id/textView26"
         app:layout_constraintVertical_bias="0.0" />
 
@@ -170,6 +173,7 @@
         android:ems="10"
         android:hint="Start Word Position"
         android:inputType="number"
+        android:text="0"
         app:layout_constraintEnd_toEndOf="@+id/et_memory_bank"
         app:layout_constraintStart_toStartOf="@+id/et_memory_bank"
         app:layout_constraintTop_toBottomOf="@+id/textView29" />
@@ -224,6 +228,7 @@
         android:ems="10"
         android:hint="Length to Read (Only for Read Tag)"
         android:inputType="number"
+        android:text="0"
         app:layout_constraintEnd_toEndOf="@+id/et_selected_epc"
         app:layout_constraintStart_toStartOf="@+id/textView42"
         app:layout_constraintTop_toBottomOf="@+id/textView32" />

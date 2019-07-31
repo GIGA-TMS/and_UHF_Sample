@@ -1,4 +1,4 @@
-package com.gigatms.ts800;
+package com.gigatms.uhf;
 
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -13,9 +13,11 @@ import android.widget.Toast;
 
 import com.gigatms.UHFDevice;
 import com.gigatms.parameters.MemoryBank;
+import com.gigatms.tools.GLog;
 import com.gigatms.tools.GTool;
+import com.squareup.leakcanary.RefWatcher;
 
-import static com.gigatms.ts800.DeviceControlFragment.MAC_ADDRESS;
+import static com.gigatms.uhf.DeviceControlFragment.MAC_ADDRESS;
 
 public class ReadWriteTagFragment extends DebugFragment {
     private static final String TAG = ReadWriteTagFragment.class.getSimpleName();
@@ -62,58 +64,46 @@ public class ReadWriteTagFragment extends DebugFragment {
     }
 
     private void setReadWriteTagViews() {
-        mBtnReadTag.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                try {
-                    mUhf.readTag(mEtTagPassword.getText().toString()
-                            , mEtSelectedEpc.getText().toString()
-                            , MemoryBank.getMemoryBank(Byte.parseByte(mEtMemoryBank.getText().toString()))
-                            , Integer.parseInt(mEtStartWordPosition.getText().toString())
-                            , Integer.parseInt(mEtReadLength.getText().toString()));
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toaster.showToast(getContext(), "Please make sure every required field is filled!", Toast.LENGTH_LONG);
-                }
+        mBtnReadTag.setOnClickListener(v -> {
+            try {
+                mUhf.readTag(mEtTagPassword.getText().toString()
+                        , mEtSelectedEpc.getText().toString()
+                        , MemoryBank.getMemoryBank(Byte.parseByte(mEtMemoryBank.getText().toString()))
+                        , Integer.parseInt(mEtStartWordPosition.getText().toString())
+                        , Integer.parseInt(mEtReadLength.getText().toString()));
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toaster.showToast(getContext(), "Please make sure every required field is filled!", Toast.LENGTH_LONG);
             }
         });
-        mBtnWriteTag.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                try {
-                    mUhf.writeTag(mEtTagPassword.getText().toString()
-                            , mEtSelectedEpc.getText().toString()
-                            , MemoryBank.getMemoryBank(Byte.parseByte(mEtMemoryBank.getText().toString()))
-                            , Integer.parseInt(mEtStartWordPosition.getText().toString())
-                            , GTool.hexStringToByteArray(mEtData.getText().toString()));
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toaster.showToast(getContext(), "Please make sure every required field is filled!", Toast.LENGTH_LONG);
-                }
+        mBtnWriteTag.setOnClickListener(v -> {
+            try {
+                mUhf.writeTag(mEtTagPassword.getText().toString()
+                        , mEtSelectedEpc.getText().toString()
+                        , MemoryBank.getMemoryBank(Byte.parseByte(mEtMemoryBank.getText().toString()))
+                        , Integer.parseInt(mEtStartWordPosition.getText().toString())
+                        , GTool.hexStringToByteArray(mEtData.getText().toString()));
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toaster.showToast(getContext(), "Please make sure every required field is filled!", Toast.LENGTH_LONG);
             }
         });
     }
 
     private void setReadWriteEpcViews() {
-        mBtnReadEpc.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String psw = mEtPassword.getText().toString();
-                mUhf.readEpc(psw);
-            }
+        mBtnReadEpc.setOnClickListener(v -> {
+            String psw = mEtPassword.getText().toString();
+            mUhf.readEpc(psw);
         });
-        mBtnWriteEpc.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                try {
-                    String psw = mEtPassword.getText().toString();
-                    String epc = mEtEpc.getText().toString().trim();
-                    Log.d(TAG, "onClick: " + epc);
-                    byte[] epcByte = GTool.hexStringToByteArray(epc);
-                    mUhf.writeEpc(psw, epcByte);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+        mBtnWriteEpc.setOnClickListener(v -> {
+            try {
+                String psw = mEtPassword.getText().toString();
+                String epc = mEtEpc.getText().toString().trim();
+                Log.d(TAG, "onClick: " + epc);
+                byte[] epcByte = GTool.hexStringToByteArray(epc);
+                mUhf.writeEpc(psw, epcByte);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         });
     }
@@ -151,32 +141,20 @@ public class ReadWriteTagFragment extends DebugFragment {
     }
 
     public void setEpc(final byte[] epc) {
-        mEtEpc.post(new Runnable() {
-            @Override
-            public void run() {
-                mEtEpc.setText(GTool.bytesToHexString(epc));
-            }
-        });
+        mEtEpc.post(() -> mEtEpc.setText(GTool.bytesToHexString(epc)));
     }
 
     public void setTagData(final MemoryBank memoryBank, final int startWordAddress, final byte[] readData) {
-        mEtData.post(new Runnable() {
-            @Override
-            public void run() {
-                mEtData.setText(GTool.bytesToHexString(readData));
-            }
-        });
-        mEtStartWordPosition.post(new Runnable() {
-            @Override
-            public void run() {
-                mEtStartWordPosition.setText(String.valueOf(startWordAddress));
-            }
-        });
-        mEtMemoryBank.post(new Runnable() {
-            @Override
-            public void run() {
-                mEtMemoryBank.setText(String.valueOf(memoryBank.getValue()));
-            }
-        });
+        mEtData.post(() -> mEtData.setText(GTool.bytesToHexString(readData)));
+        mEtStartWordPosition.post(() -> mEtStartWordPosition.setText(String.valueOf(startWordAddress)));
+        mEtMemoryBank.post(() -> mEtMemoryBank.setText(String.valueOf(memoryBank.getValue())));
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        RefWatcher refWatcher = LeakWatcherApplication.getRefWatcher(getActivity());
+        refWatcher.watch(this);
+        GLog.d(TAG, "onDestroy");
     }
 }

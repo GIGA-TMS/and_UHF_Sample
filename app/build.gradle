@@ -18,11 +18,11 @@ repositories {
 android {
     compileSdkVersion 28
     defaultConfig {
-        applicationId "com.gigatms.ts800_sample"
+        applicationId "com.gigatms.uhf"
         minSdkVersion 21
         targetSdkVersion 28
         versionCode Integer.parseInt( new Date().format("yyyyMMdd"))
-        versionName "2.0.0.0"
+        versionName "2.0.0.1"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -31,7 +31,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             android.applicationVariants.all { variant ->
                 variant.outputs.all {
-                    outputFileName = "and_TS800_Sample_v${variant.versionName}.${variant.versionCode}.apk"
+                    outputFileName = "and_UHF_Sample_v${variant.versionName}.${variant.versionCode}.apk"
                 }
             }
         }
@@ -56,4 +56,5 @@ dependencies {
     implementation('com.crashlytics.sdk.android:crashlytics:2.9.5@aar') {
         transitive = true
     }
+    debugImplementation 'com.squareup.leakcanary:leakcanary-android:1.6.3'
 }

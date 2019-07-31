@@ -1,9 +1,8 @@
-package com.gigatms.ts800.command;
+package com.gigatms.uhf.command;
 
-import static com.gigatms.ts800.CommandRecyclerViewAdapter.TWO_SPINNER;
+import static com.gigatms.uhf.CommandRecyclerViewAdapter.TWO_SPINNER;
 
 public class TwoSpinnerCommand<E extends Enum<E>, T extends Enum<T>> extends Command {
-    private OnGetValues mOnGetValues;
     private Enum<E>[] mFirstEnums;
     private Enum<T>[] mSecondEnums;
     private Enum mFirstSelected;
@@ -26,10 +25,6 @@ public class TwoSpinnerCommand<E extends Enum<E>, T extends Enum<T>> extends Com
         mSecondEnums = secondEnum;
     }*/
 
-    public interface OnGetValues {
-        void onGetValues(Enum first, Enum second);
-    }
-
     public void setOnFirstItemSelected(OnFirstItemSelected onFirstItemSelected) {
         mOnFirstItemSelected = onFirstItemSelected;
     }
@@ -37,10 +32,6 @@ public class TwoSpinnerCommand<E extends Enum<E>, T extends Enum<T>> extends Com
     @Override
     public int getViewType() {
         return TWO_SPINNER;
-    }
-
-    public void setOnGetValues(OnGetValues onGetValues) {
-        mOnGetValues = onGetValues;
     }
 
     public Enum<E>[] getFirstEnums() {
@@ -74,7 +65,4 @@ public class TwoSpinnerCommand<E extends Enum<E>, T extends Enum<T>> extends Com
         mSecondSelected = secondSelected;
     }
 
-    public void didGetValue(Enum first, Enum second) {
-        mOnGetValues.onGetValues(first, second);
-    }
 }

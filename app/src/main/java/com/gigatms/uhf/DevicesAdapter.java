@@ -1,4 +1,4 @@
-package com.gigatms.ts800;
+package com.gigatms.uhf;
 
 import android.app.AlertDialog;
 import android.content.Context;
@@ -32,14 +32,14 @@ public class DevicesAdapter extends RecyclerView.Adapter<DevicesAdapter.ViewHold
         void onControlClicked(BaseDevice baseDevice);
     }
 
-    public DevicesAdapter(Context mContext) {
+    DevicesAdapter(Context mContext) {
         this.mContext = mContext;
         mDevices = new ArrayList<>();
         mHandler = new Handler();
     }
 
 
-    public void setControlCallback(OnControlCallback mControlCallback) {
+    void setControlCallback(OnControlCallback mControlCallback) {
         this.mControlCallback = mControlCallback;
     }
 
@@ -112,33 +112,27 @@ public class DevicesAdapter extends RecyclerView.Adapter<DevicesAdapter.ViewHold
             connectState.setText(device.getConnectionState().name());
             btnConnect.setEnabled(!device.getConnectionState().equals(ConnectionState.CONNECTING));
             btnConnect.setText(device.getConnectionState().equals(ConnectionState.DISCONNECTED) ? R.string.connect : R.string.disconnect);
-            btnConnect.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (device.getConnectionState().equals(ConnectionState.DISCONNECTED)) {
-                        new AlertDialog.Builder(mContext)
-                                .setTitle("Please choose the way of connection the UHF.")
-                                .create();
-                        device.connect();
-                    } else {
-                        device.disconnect();
-                    }
+            btnConnect.setOnClickListener(v -> {
+                if (device.getConnectionState().equals(ConnectionState.DISCONNECTED)) {
+                    new AlertDialog.Builder(mContext)
+                            .setTitle("Please choose the way of connection the UHF.")
+                            .create();
+                    device.connect();
+                } else {
+                    device.disconnect();
                 }
             });
             btnControl.setEnabled(device.getConnectionState().equals(ConnectionState.CONNECTED));
-            btnControl.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    for (String macAddress : ConnectedDevices.getInstance().keySet()) {
-                        if (macAddress != device.getDeviceMacAddr()) {
-                            ConnectedDevices.getInstance().get(macAddress).disconnect();
-                            ConnectedDevices.getInstance().get(macAddress).destroy();
-                            ConnectedDevices.getInstance().clear(macAddress);
-                        }
+            btnControl.setOnClickListener(v -> {
+                for (String macAddress : ConnectedDevices.getInstance().keySet()) {
+                    if (!macAddress.equals(device.getDeviceMacAddr())) {
+                        ConnectedDevices.getInstance().get(macAddress).disconnect();
+                        ConnectedDevices.getInstance().get(macAddress).destroy();
+                        ConnectedDevices.getInstance().clear(macAddress);
                     }
-                    if (mControlCallback != null) {
-                        mControlCallback.onControlClicked(device);
-                    }
+                }
+                if (mControlCallback != null) {
+                    mControlCallback.onControlClicked(device);
                 }
             });
 
@@ -152,13 +146,10 @@ public class DevicesAdapter extends RecyclerView.Adapter<DevicesAdapter.ViewHold
 
         private void repaintView() {
             Log.d(TAG, "repaintView: ");
-            mHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    Log.d(TAG, "run: " + device.getConnectionState());
-                    int index = mDevices.indexOf(device);
-                    notifyItemChanged(index);
-                }
+            mHandler.post(() -> {
+                Log.d(TAG, "run: " + device.getConnectionState());
+                int index = mDevices.indexOf(device);
+                notifyItemChanged(index);
             });
         }
 

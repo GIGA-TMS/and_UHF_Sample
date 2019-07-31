@@ -1,6 +1,7 @@
-package com.gigatms.ts800;
+package com.gigatms.uhf;
 
 import android.graphics.Color;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -26,6 +27,12 @@ import com.gigatms.TagInformationFormat;
 import com.gigatms.UHFCallback;
 import com.gigatms.UHFDevice;
 import com.gigatms.UR0250;
+import com.gigatms.uhf.command.CheckboxCommand;
+import com.gigatms.uhf.command.Command;
+import com.gigatms.uhf.command.EditTextCommand;
+import com.gigatms.uhf.command.SeekBarCommand;
+import com.gigatms.uhf.command.SpinnerCommand;
+import com.gigatms.uhf.command.TwoSpinnerCommand;
 import com.gigatms.parameters.BuzzerAction;
 import com.gigatms.parameters.BuzzerOperationMode;
 import com.gigatms.parameters.EventType;
@@ -43,12 +50,7 @@ import com.gigatms.parameters.Target;
 import com.gigatms.parameters.TriggerType;
 import com.gigatms.tools.GLog;
 import com.gigatms.tools.GTool;
-import com.gigatms.ts800.command.CheckboxCommand;
-import com.gigatms.ts800.command.Command;
-import com.gigatms.ts800.command.EditTextCommand;
-import com.gigatms.ts800.command.SeekBarCommand;
-import com.gigatms.ts800.command.SpinnerCommand;
-import com.gigatms.ts800.command.TwoSpinnerCommand;
+import com.squareup.leakcanary.RefWatcher;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -122,56 +124,67 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
     }
 
     @Override
+    public void onStart() {
+        super.onStart();
+        mUhf.setCommunicationCallback(this);
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
         GLog.d(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
-        initReadWriteFragment();
+        mAdapter = new CommandRecyclerViewAdapter();
+        mRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        mRecyclerView.setHasFixedSize(true);
+        mRecyclerView.setAdapter(mAdapter);
+
         if (getActivity() != null) {
             getActivity().setTitle(mUhf.getDeviceName());
         }
         setDeviceInformation();
-        initCommandViews();
         setConnectionButton();
-        switch (mBottomNavigationView.getSelectedItemId()) {
-            case R.id.inventory:
-                showInventoryViews();
-                break;
-            case R.id.setting:
-                showSettingViews();
-                break;
-            case R.id.advance_setting:
-                showAdvance();
-                break;
-            case R.id.read_write_tag:
-                break;
-        }
-        switchView(mBottomNavigationView.getSelectedItemId());
         mUhf.getRomVersion();
-        mUhf.getBleRomVersion();
+        if (mUhf.getCommunicationType().equals(CommunicationType.BLE)) {
+            mUhf.getBleRomVersion();
+        }
         mUhf.initializeSettings();
+        new ViewCreateAsyncTask().execute();
     }
 
-    private void initReadWriteFragment() {
-        mReadWriteTagFragment = ReadWriteTagFragment.newFragment(mUhf.getDeviceMacAddr());
-        Objects.requireNonNull(getActivity()).runOnUiThread(() -> {
-            if (getFragmentManager() != null) {
-                getFragmentManager().beginTransaction()
-                        .replace(R.id.device_container, mReadWriteTagFragment)
-                        .commit();
+    public class ViewCreateAsyncTask extends AsyncTask {
+        @Override
+        protected Object doInBackground(Object[] objects) {
+            initCommandViews();
+            if (mReadWriteTagFragment == null) {
+                mReadWriteTagFragment = ReadWriteTagFragment.newFragment(mUhf.getDeviceMacAddr());
             }
-        });
-        mFrameLayout.setVisibility(View.INVISIBLE);
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Object o) {
+            switchView(mBottomNavigationView.getSelectedItemId());
+            switch (mBottomNavigationView.getSelectedItemId()) {
+                case R.id.inventory:
+                    showInventoryViews();
+                    break;
+                case R.id.setting:
+                    showSettingViews();
+                    break;
+                case R.id.advance_setting:
+                    showAdvance();
+                    break;
+            }
+            getChildFragmentManager().beginTransaction()
+                    .replace(R.id.device_container, mReadWriteTagFragment)
+                    .commit();
+        }
     }
 
     private void initCommandViews() {
-        mAdapter = new CommandRecyclerViewAdapter(getContext());
-        mRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        mRecyclerView.setHasFixedSize(true);
-
         newInventoryCommands();
         newSettingCommands();
         newAdvanceCommands();
-        mRecyclerView.setAdapter(mAdapter);
         mBottomNavigationView.setOnNavigationItemSelectedListener(menuItem -> {
             boolean idFound = false;
             switch (menuItem.getItemId()) {
@@ -414,8 +427,14 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
     }
 
     void switchView(int menuItemId) {
-        mRecyclerView.setVisibility(menuItemId == R.id.read_write_tag ? View.INVISIBLE : View.VISIBLE);
-        mFrameLayout.setVisibility(menuItemId == R.id.read_write_tag ? View.VISIBLE : View.INVISIBLE);
+        if (menuItemId == R.id.read_write_tag) {
+            mFrameLayout.setVisibility(View.VISIBLE);
+            mRecyclerView.setVisibility(View.GONE);
+        } else {
+            mFrameLayout.setVisibility(View.GONE);
+            mRecyclerView.setVisibility(View.VISIBLE);
+        }
+
     }
 
     private void newTS100MemoryBankSelectionCommand(final TS100 ts100) {
@@ -493,10 +512,10 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
         mSessionTargetCommand.setOnFirstItemSelected(selected -> {
             if (selected.equals(SL) && !Target.slContains((Target) mSessionTargetCommand.getSecondEnums()[0])) {
                 mSessionTargetCommand.setSecondEnums(Target.getSlTargets());
-                mAdapter.notifyDataSetChanged();
+                mAdapter.notifyItemChanged(mSessionTargetCommand.getPosition());
             } else if ((!selected.equals(SL)) && !Target.abContains((Target) mSessionTargetCommand.getSecondEnums()[0])) {
                 mSessionTargetCommand.setSecondEnums(Target.getAbTargets());
-                mAdapter.notifyDataSetChanged();
+                mAdapter.notifyItemChanged(mSessionTargetCommand.getPosition());
             }
         });
         mSessionTargetCommand.setLeftOnClickListener(v -> mUhf.getSessionAndTarget(mTemp));
@@ -558,7 +577,6 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
         assert mUhf != null;
         GLog.d(TAG, mUhf.toString());
         mUhf.setUHFCallback(mUHFCallback);
-        mUhf.setCommunicationCallback(this);
         mUhf.setDeviceDebugCallback(mDeviceDebugCallback);
     }
 
@@ -623,7 +641,8 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
         @Override
         public void didGetRfPower(final byte rfPower) {
-            mRfPowerCommand.didGetVale(rfPower);
+            mRfPowerCommand.setSelected(rfPower);
+            mAdapter.notifyItemChanged(mRfPowerCommand.getPosition());
             onUpdateLog(TAG, "didGetRfPower: " + rfPower);
         }
 
@@ -634,20 +653,24 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
             Pattern pattern = Pattern.compile(regEx);
             Matcher matcher = pattern.matcher(sensitivityName);
             final int sensitivityValue = Integer.parseInt(matcher.replaceAll("").trim());
-            mRfSensitivityCommand.didGetVale(sensitivityValue);
+            mRfSensitivityCommand.setSelected(sensitivityValue);
+            mAdapter.notifyItemChanged(mRfSensitivityCommand.getPosition());
             onUpdateLog(TAG, "didGetRfSensitivity: " + sensitivity.name());
         }
 
         @Override
         public void didGetFrequencyList(final ArrayList<Double> frequencyList) {
             String frequencyData = Arrays.toString(frequencyList.toArray());
-            mFrequencyCommand.didGetVale(frequencyData.replace("[", "").replace("]", ""));
+            mFrequencyCommand.setSelected(frequencyData.replace("[", "").replace("]", ""));
+            mAdapter.notifyItemChanged(mFrequencyCommand.getPosition());
             onUpdateLog(TAG, "didGetFrequencyList:\n" + frequencyData);
         }
 
         @Override
         public void didGetSessionAndTarget(final Session session, final Target target) {
-            mSessionTargetCommand.didGetValue(session, target);
+            mSessionTargetCommand.setFirstSelected(session);
+            mSessionTargetCommand.setSecondSelected(target);
+            mAdapter.notifyItemChanged(mSessionTargetCommand.getPosition());
             onUpdateLog(TAG, "didGetSessionAndTarget:" +
                     "\n\tSession: " + session.name() +
                     "\n\tTarget: " + target.name());
@@ -655,7 +678,8 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
         @Override
         public void didGetQValue(final byte qValue) {
-            mQCommand.didGetVale(qValue);
+            mQCommand.setSelected(qValue);
+            mAdapter.notifyItemChanged(mQCommand.getPosition());
             onUpdateLog(TAG, "didGetQValue: " + qValue);
         }
 
@@ -668,7 +692,8 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
         @Override
         public void didGetBleDeviceName(final String bleDeviceName) {
-            mBleDeviceNameCommand.didGetVale(bleDeviceName);
+            mBleDeviceNameCommand.setSelected(bleDeviceName);
+            mAdapter.notifyItemChanged(mBleDeviceNameCommand.getPosition());
             onUpdateLog(TAG, "didGetBleDeviceName: " + bleDeviceName);
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> getActivity().setTitle(mUhf.getDeviceName()));
@@ -694,19 +719,22 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
         @Override
         public void didGetEventType(final EventType eventType) {
-            mEventTypeCommand.didGetValue(eventType);
+            mEventTypeCommand.setSelected(eventType);
+            mAdapter.notifyItemChanged(mEventTypeCommand.getPosition());
             onUpdateLog(TAG, "didGetEventType: " + eventType.name());
         }
 
         @Override
         public void didGetOutputInterface(final Set<OutputInterface> outputInterfaces) {
-            mOutputInterfaceCommand.didGetValue(outputInterfaces);
+            mOutputInterfaceCommand.setSelected(outputInterfaces);
+            mAdapter.notifyItemChanged(mOutputInterfaceCommand.getPosition());
             onUpdateLog(TAG, "didGetOutputInterface: " + Arrays.toString(outputInterfaces.toArray()));
         }
 
         @Override
         public void didGetBuzzerOperationMode(final BuzzerOperationMode buzzerOperationMode) {
-            mBuzzerOperationCommand.didGetValue(buzzerOperationMode);
+            mBuzzerOperationCommand.setSelected(buzzerOperationMode);
+            mAdapter.notifyItemChanged(mBuzzerOperationCommand.getPosition());
             onUpdateLog(TAG, "didGetBuzzerOperationMode: " + buzzerOperationMode.name());
         }
 
@@ -722,7 +750,8 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
         @Override
         public void didGetTriggerType(final TriggerType triggerSource) {
-            mTriggerCommand.didGetValue(triggerSource);
+            mTriggerCommand.setSelected(triggerSource);
+            mAdapter.notifyItemChanged(mTriggerCommand.getPosition());
             onUpdateLog(TAG, "didGetTriggerType: " + triggerSource.name());
         }
 
@@ -767,19 +796,22 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
         @Override
         public void didGetPostDataDelimiter(PostDataDelimiter postDataDelimiter) {
-            mPostDataDelimiterCommand.didGetValue(postDataDelimiter);
+            mPostDataDelimiterCommand.setSelected(postDataDelimiter);
+            mAdapter.notifyItemChanged(mPostDataDelimiterCommand.getPosition());
             onUpdateLog(TAG, "didGetPostDataDelimiter: " + postDataDelimiter);
         }
 
         @Override
         public void didGetMemoryBankSelection(Set<MemoryBankSelection> memoryBankSelection) {
-            mMemoryBankSelectionCommand.didGetValue(memoryBankSelection);
+            mMemoryBankSelectionCommand.setSelected(memoryBankSelection);
+            mAdapter.notifyItemChanged(mMemoryBankSelectionCommand.getPosition());
             onUpdateLog(TAG, "didGetMemoryBankSelection: " + Arrays.toString(memoryBankSelection.toArray()));
         }
 
         @Override
         public void didGetFilter(Set<TagDataEncodeType> tagDataEncodeTypes) {
-            mGetFilterCommand.didGetValue(tagDataEncodeTypes);
+            mGetFilterCommand.setSelected(tagDataEncodeTypes);
+            mAdapter.notifyItemChanged(mGetFilterCommand.getPosition());
             if (tagDataEncodeTypes == null || tagDataEncodeTypes.size() == 0) {
                 onUpdateLog(TAG, "didGetFilter: Filter is disable.");
             } else {
@@ -791,10 +823,7 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
     @Override
     public void didUpdateConnection(final ConnectionState connectState, CommunicationType type) {
         if (getActivity() != null) {
-            getActivity().runOnUiThread(() -> {
-                Objects.requireNonNull(getActivity()).invalidateOptionsMenu();
-                updateConnectionViews(connectState);
-            });
+            getActivity().runOnUiThread(() -> updateConnectionViews(connectState));
         }
         if (connectState.equals(ConnectionState.CONNECTED)) {
             mUhf.initializeSettings();
@@ -869,14 +898,29 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
     };
 
     @Override
+    public void onPause() {
+        super.onPause();
+        GLog.d(TAG, "onPause");
+        mRecyclerView.setAdapter(null);
+    }
+
+    @Override
     public void onStop() {
         super.onStop();
+        GLog.d(TAG, "onStop");
+        mUhf.setCommunicationCallback(null);
+        mUhf.disconnect();
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
+        GLog.d(TAG, "onDestroy");
+        getChildFragmentManager().beginTransaction()
+                .remove(mReadWriteTagFragment);
         ConnectedDevices.getInstance().clear(mUhf.getDeviceMacAddr());
+        RefWatcher refWatcher = LeakWatcherApplication.getRefWatcher(getContext());
+        refWatcher.watch(this);
     }
 
     void setConnectionButton() {

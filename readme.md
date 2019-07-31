@@ -9,8 +9,7 @@ Pre-requisites
 --------------
 - Android version 5.0~9.0
 - Android API 21~28
-- Android Build Tools v27.0.2
-- Android IDE 3.4.1
+- Android IDE 3.4.2
 - Android Support Repository
 
 
@@ -25,21 +24,19 @@ The SDK Library has the following capabilities:
 
 - Start and stop the inventory process.
 
-- Read and write tag data.
-
 - Configures the UHF reader settings.
 
 Model
 -----
 The general device behavior model of the UHF reader is:
 
-- Use StartInventory to start inventory process using specified method of triggering RF power to read tag data.
+- Use `startInventory` to start inventory process using specified method of triggering RF power to read tag data.
 
-- The read tag data is presented at OnTagPresented event.
+- The read tag data is presented at the callback method `didDiscoverTagInfo` of UHFCallback interface.
 
-- Use StopInventory() to stop inventory process.
+- Use `stopInventory()` to stop inventory process.
 
-##### TS800 Reader
+##### UHFDevice Reader
 
 Tutorials
 ---------
@@ -49,29 +46,30 @@ This article don't involve too much details. If you need comprehensive understan
 
 TS800, TS100 and UR0250 are used in the similar way. The tutorial use TS800 as a example.
 
-### Use TS800Scanner to scan TS800 reader
+### Use UHFScanner to scan TS800 reader
 
-Use TS800Scanner to Scan TS800.
+Use UHFScanner to Scan TS800.
 
-``` java
- TS800Scanner ts800Scanner = new TS800Scanner(Context, scannerCallback, BLE);
- ts800Scanner.setScannerCallback(scannerCallback);
- ts800Scanner.startScan();
-```
+Before Scanner a `UHFDevice`, `ScannerCallback` is needed to be implement.
 
-When a TS800 is found, a callback function will called.
 ```java
  ScannerCallback scannerCallback = new ScannerCallback{
     @Override
-    public void didDiscoveredDevice(final BaseDevice baseDevice) {
+    public void didDiscoveredDevice(BaseDevice baseDevice) {
         TS800 ts800 = (TS800)baseDevice;
     }
 
     @Override
     public void didScanStop() {
-        //TODO scanning operation stop
+        //TODO anything after scan opteratino is stopped.
     }
  }
+```
+
+``` java
+ UHFScanner uhfScanner = new UHFScanner(UhfClassVersion.TS800, getContext(), this, BLE);
+ uhfScanner.setScannerCallback(scannerCallback);
+ uhfScanner.startScan();
 ```
 
 ### Connect TS800 Device 
@@ -94,6 +92,10 @@ A connection callback function will called if the connection status with remote 
         //TODO There are three connectionState: Connected, Connecting and Disconnection. Please make sure the remote TS800 is connected before operating remote TS800.  
         //TODO TS800 has BLE, TCP connection types
     }
+    @Override 
+    public void void didConnectionTimeout(CommunicationType type) {
+        //TODO anything that do after a connection timeout happens.
+    }
  }
  ts800.setCommunicationCallback(mCommunicationCallback);
 
@@ -107,21 +109,22 @@ Connect to the remote TS800.
 
 To disconnect to remote TS800, please make sure every command is done.
 If the TS800 is still inventorying Tags, please call stopInventory method.
-After the `didGeneralSuccess("STOP_INVENTORY")` method is called, a disconnect method is able to called.
+After the `UHFCallback.didGeneralSuccess("STOP_INVENTORY")` method is called, a disconnect method is able to called.
 
 ```java
  ts800.disconnect();
 ```
 
-A connection callback function will called after the remote TS800 is disconnected.
+`CommunicationCallback.didUpdateConnection(DISCONNECTED)` callback function will called after the remote TS800 is disconnected.
 
 ### TS800 Operation
 
 Before operating TS800, please set UHFCallback and connect to the remote TS800.
+Overwrite the methods that are need to monitor.
 
 ```java
 UHFCallback uhfCallback = new UHFCallback{
-    public void didGeneralSuccess(String invokeApi){
+   public void didGeneralSuccess(String invokeApi){
         //TODO receive an ack reply from remote TS800 reader
     };
     
@@ -133,50 +136,13 @@ UHFCallback uhfCallback = new UHFCallback{
         //TODO receive a tag event from remote TS800 reader
         //The callback method will called when the remote TS800 is inventory and a Epc Tag is found.
     };
-    
-    public void didReadEpc(byte[] epc){
-        //TODO receive reply of readEpc method
-        //The callback method of ts800.readEpc
-    };
 
-    public void didGetFirmwareVersion(String firmwareVersion){
-        //TODO receive reply of getRomVersion method
-        //The callback method of ts800.getRomVersion
-    };
     
     public void didGetRfPower(byte rfPower){
         //TODO receive reply of getRfPower method
         //The callback method of ts800.getRfPower
     };
-    
-    public void didGetRfSensitivity(RfSensitivityLevel rfSensitivity){
-        //TODO receive reply of getRfSensitivity method
-        //The callback method of ts800.getRfSensitivity
-    };
-    
-    public void didGetFrequencyList(ArrayList<Double> frequencyList){
-        //TODO receive reply of getFrequency method
-        //The callback method of ts800.getFrequency
-    }
-
-    public void didGetTriggerType(TriggerType triggerSource){
-        //TODO receive reply of getTriggerType method
-        //The callback method of ts800.getTriggerType
-    }
-    
-    public void didGetSessionAndTarget(Session session, Target target){
-        //TODO receive reply of getSessionAndTarget method
-        //The callback method of ts800.getSessionAndTarget
-    }
-
-    public void didGetQValue(byte qValue){
-        //TODO receive reply of getQValue method
-        //The callback method of ts800.getQValue
-    }
-
-    //This Callback is only for TS100 remote device, TS800 is not supported
-    public void didGetBuzzerOperationMode(BuzzerOperationMode buzzerOperationMode){
-    }
+    ......
 }
 ts800.setUHFCallback(uhfCallback);
 ```

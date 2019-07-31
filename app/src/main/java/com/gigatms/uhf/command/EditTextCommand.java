@@ -1,9 +1,8 @@
-package com.gigatms.ts800.command;
+package com.gigatms.uhf.command;
 
-import static com.gigatms.ts800.CommandRecyclerViewAdapter.EDIT_TEXT;
+import static com.gigatms.uhf.CommandRecyclerViewAdapter.EDIT_TEXT;
 
 public class EditTextCommand extends Command {
-    private OnGetValue mOnGetValue;
     private String mHint;
     private String mSelected;
 
@@ -17,8 +16,9 @@ public class EditTextCommand extends Command {
         mHint = hint;
     }
 
-    public interface OnGetValue {
-        void onGetValue(String value);
+    @Override
+    public int getViewType() {
+        return EDIT_TEXT;
     }
 
     public String getHint() {
@@ -33,17 +33,4 @@ public class EditTextCommand extends Command {
         mSelected = selected;
     }
 
-    public void setOnGetValue(OnGetValue onGetValue) {
-        mOnGetValue = onGetValue;
-    }
-
-    @Override
-    public int getViewType() {
-        return EDIT_TEXT;
-    }
-
-    public void didGetVale(String value) {
-        mSelected = value;
-        mOnGetValue.onGetValue(value);
-    }
 }
