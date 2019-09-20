@@ -44,7 +44,7 @@ This tutorials will give you straight-and-simple 1-2-3 style operations about th
 
 This article don't involve too much details. If you need comprehensive understanding, please read the complete manual topic, and not just the tutorial.
 
-TS800, TS100 and UR0250 are used in the similar way. The tutorial use TS800 as a example.
+TS800, TS100, MU400H and UR0250 are used in the similar way. The tutorial use TS800 as a example.
 
 ### Use UHFScanner to scan TS800 reader
 
@@ -218,6 +218,10 @@ After operating TS800, a method of UHFCallback function will called.
 Method `didGetRfPower` of UHFCallback will called if this operation is success.
 
 Method `didGeneralError("GET_RF_POWER",errorMessage)` of UHFCallback will called if this operation is failed.
+
+#### Important
+
+Please notice that every setting will stop the UHF Devices inventory operation! 
 
 Support
 -------

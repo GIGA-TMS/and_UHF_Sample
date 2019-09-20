@@ -84,7 +84,6 @@ public class ReadWriteTagFragment extends DebugFragment {
                         , Integer.parseInt(mEtStartWordPosition.getText().toString())
                         , GTool.hexStringToByteArray(mEtData.getText().toString()));
             } catch (Exception e) {
-                e.printStackTrace();
                 Toaster.showToast(getContext(), "Please make sure every required field is filled!", Toast.LENGTH_LONG);
             }
         });
@@ -103,7 +102,7 @@ public class ReadWriteTagFragment extends DebugFragment {
                 byte[] epcByte = GTool.hexStringToByteArray(epc);
                 mUhf.writeEpc(psw, epcByte);
             } catch (Exception e) {
-                e.printStackTrace();
+                Toaster.showToast(getContext(), "Wrong Epc Format! " + e.getMessage(), Toast.LENGTH_LONG);
             }
         });
     }

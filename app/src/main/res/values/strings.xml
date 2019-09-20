@@ -1,6 +1,4 @@
 <resources>
-    <string name="clear">Clear</string>
-    <string name="app_name">UHF Sample</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="nav_header_title">Android Studio</string>
@@ -32,4 +30,6 @@
     <string name="hide_log_view">Hide Log View</string>
     <string name="show_log_view">Show Log View</string>
     <string name="connecting">Connecting</string>
+    <string name="clear">Clear</string>
+    <string name="app_name">UHF Sample</string>
 </resources>

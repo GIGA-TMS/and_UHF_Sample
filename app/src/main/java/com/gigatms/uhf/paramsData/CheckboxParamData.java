@@ -1,34 +1,28 @@
-package com.gigatms.uhf.command;
+package com.gigatms.uhf.paramsData;
 
 import com.gigatms.tools.GLog;
 
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Set;
 
-import static com.gigatms.uhf.CommandRecyclerViewAdapter.TABLE;
+import static com.gigatms.uhf.paramsData.ParamData.ViewType.CHECKBOX_LIST;
 
-public class CheckboxCommand<E extends Enum<E>> extends Command {
-    private static final String TAG = CheckboxCommand.class.getSimpleName();
+public class CheckboxParamData<E extends Enum<E>> extends ParamData {
+    private static final String TAG = CheckboxParamData.class.getSimpleName();
     private Set<E> mData;
     private Set<Integer> mSelectedOrdinal;
 
-    public CheckboxCommand(String title, Class<E> enumData) {
-        super(title);
+    public CheckboxParamData(Class<E> enumData) {
+        super(CHECKBOX_LIST);
         mData = EnumSet.allOf(enumData);
         mSelectedOrdinal = new HashSet<>();
     }
 
-    public CheckboxCommand(String title, String leftBtnName, String rightBtnName, Class<E> enumData) {
-        super(title, leftBtnName, rightBtnName);
-        mData = EnumSet.allOf(enumData);
+    public CheckboxParamData(Set<E> enumData) {
+        super(CHECKBOX_LIST);
+        mData = enumData;
         mSelectedOrdinal = new HashSet<>();
-    }
-
-    @Override
-    public int getViewType() {
-        return TABLE;
     }
 
     public Set<E> getDataSet() {
@@ -36,13 +30,11 @@ public class CheckboxCommand<E extends Enum<E>> extends Command {
     }
 
     public void setSelected(Set<E> set) {
-        GLog.d(TAG, "Selected " + Arrays.toString(set.toArray()));
         mSelectedOrdinal = new HashSet<>();
         for (E e : set) {
             GLog.d(TAG, e.name() + " ordinal " + e.ordinal());
             mSelectedOrdinal.add(e.ordinal());
         }
-        GLog.d(TAG, "Selected Ordinal" + Arrays.toString(mSelectedOrdinal.toArray()));
     }
 
     public Set<E> getSelected() {
@@ -52,7 +44,6 @@ public class CheckboxCommand<E extends Enum<E>> extends Command {
                 set.add(e);
             }
         }
-        GLog.d(TAG, "Selected " + Arrays.toString(set.toArray()));
         return set;
     }
 
@@ -61,7 +52,6 @@ public class CheckboxCommand<E extends Enum<E>> extends Command {
     }
 
     public boolean isOrdinalSelected(int ordinal) {
-        GLog.d(TAG, ordinal + ": " + mSelectedOrdinal.contains(ordinal));
         return mSelectedOrdinal.contains(ordinal);
     }
 

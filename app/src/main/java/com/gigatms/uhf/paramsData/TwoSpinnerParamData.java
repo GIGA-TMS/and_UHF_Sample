@@ -1,8 +1,9 @@
-package com.gigatms.uhf.command;
+package com.gigatms.uhf.paramsData;
 
-import static com.gigatms.uhf.CommandRecyclerViewAdapter.TWO_SPINNER;
 
-public class TwoSpinnerCommand<E extends Enum<E>, T extends Enum<T>> extends Command {
+import static com.gigatms.uhf.paramsData.ParamData.ViewType.TWO_SPINNER;
+
+public class TwoSpinnerParamData<E extends Enum<E>, T extends Enum<T>> extends ParamData {
     private Enum<E>[] mFirstEnums;
     private Enum<T>[] mSecondEnums;
     private Enum mFirstSelected;
@@ -13,25 +14,15 @@ public class TwoSpinnerCommand<E extends Enum<E>, T extends Enum<T>> extends Com
         void onFirstItemSelected(Enum selected);
     }
 
-    public TwoSpinnerCommand(String title, Enum<E>[] firstEnums, Enum<T>[] secondEnums) {
-        super(title);
+    public TwoSpinnerParamData(Enum<E>[] firstEnums, Enum<T>[] secondEnums) {
+        super(TWO_SPINNER);
         mFirstEnums = firstEnums;
         mSecondEnums = secondEnums;
     }
 
-/*    public TwoSpinnerCommand(String title, String rightBtnName, String leftBtnName, Class<E> firstEnum, Class<T> secondEnum) {
-        super(title, rightBtnName, leftBtnName);
-        mFirstEnums = firstEnum;
-        mSecondEnums = secondEnum;
-    }*/
 
     public void setOnFirstItemSelected(OnFirstItemSelected onFirstItemSelected) {
         mOnFirstItemSelected = onFirstItemSelected;
-    }
-
-    @Override
-    public int getViewType() {
-        return TWO_SPINNER;
     }
 
     public Enum<E>[] getFirstEnums() {

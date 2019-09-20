@@ -108,7 +108,7 @@ public class DevicesAdapter extends RecyclerView.Adapter<DevicesAdapter.ViewHold
             this.device = device;
             this.device.setCommunicationCallback(this);
             deviceName.setText(device.getDeviceName());
-            macAddress.setText(device.getDeviceMacAddr());
+            macAddress.setText(device.getDeviceID());
             connectState.setText(device.getConnectionState().name());
             btnConnect.setEnabled(!device.getConnectionState().equals(ConnectionState.CONNECTING));
             btnConnect.setText(device.getConnectionState().equals(ConnectionState.DISCONNECTED) ? R.string.connect : R.string.disconnect);
@@ -125,7 +125,7 @@ public class DevicesAdapter extends RecyclerView.Adapter<DevicesAdapter.ViewHold
             btnControl.setEnabled(device.getConnectionState().equals(ConnectionState.CONNECTED));
             btnControl.setOnClickListener(v -> {
                 for (String macAddress : ConnectedDevices.getInstance().keySet()) {
-                    if (!macAddress.equals(device.getDeviceMacAddr())) {
+                    if (!macAddress.equals(device.getDeviceID())) {
                         ConnectedDevices.getInstance().get(macAddress).disconnect();
                         ConnectedDevices.getInstance().get(macAddress).destroy();
                         ConnectedDevices.getInstance().clear(macAddress);
@@ -138,17 +138,18 @@ public class DevicesAdapter extends RecyclerView.Adapter<DevicesAdapter.ViewHold
 
             ConnectedDevices devices = ConnectedDevices.getInstance();
             if (device.getConnectionState().equals(ConnectionState.CONNECTED)) {
-                devices.put(device.getDeviceMacAddr(), device);
+                devices.put(device.getDeviceID(), device);
             } else {
-                devices.remove(device.getDeviceMacAddr());
+                devices.remove(device.getDeviceID());
             }
         }
 
         private void repaintView() {
             Log.d(TAG, "repaintView: ");
+            int index = mDevices.indexOf(device);
             mHandler.post(() -> {
                 Log.d(TAG, "run: " + device.getConnectionState());
-                int index = mDevices.indexOf(device);
+                Log.d(TAG, "run: " + index);
                 notifyItemChanged(index);
             });
         }

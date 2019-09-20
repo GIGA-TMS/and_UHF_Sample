@@ -1,7 +1,12 @@
 package com.gigatms.uhf;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.hardware.usb.UsbManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -23,10 +28,14 @@ import com.squareup.leakcanary.RefWatcher;
 import java.util.Arrays;
 
 import static com.gigatms.CommunicationType.BLE;
-import static com.gigatms.CommunicationType.TCP;
 import static com.gigatms.CommunicationType.UDP;
+import static com.gigatms.CommunicationType.USB;
+import static com.gigatms.UHF.UhfClassVersion.MU400H;
+import static com.gigatms.UHF.UhfClassVersion.TS100;
+import static com.gigatms.UHF.UhfClassVersion.TS800;
+import static com.gigatms.UHF.UhfClassVersion.UR0250;
 
-public class DeviceScanFragment extends BaseScanFragment{
+public class DeviceScanFragment extends BaseScanFragment {
     private static final String TAG = DeviceScanFragment.class.getSimpleName();
     private final int REQUEST_COARSE_LOCATION = 99;
 
@@ -39,38 +48,37 @@ public class DeviceScanFragment extends BaseScanFragment{
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = super.onCreateView(inflater, container, savedInstanceState);
-        addUhfClassVersionRadioButton();
-        addInterfaceRadioButton();
         return view;
     }
 
     @Override
-    public void setClassVersion(byte checkedProduct) {
-        UhfClassVersion uhfClassVersion = UhfClassVersion.getClassCode(checkedProduct);
+    public void hookAddSpnProducts() {
+        addSpnProducts(new String[]{TS100.name(), TS800.name(), MU400H.name(), UR0250.name()});
+        mSpnProduct.setSelection(0);
+        ((UHFScanner) mBaseScanner).setClassVersion(UhfClassVersion.TS100);
+    }
+
+    @Override
+    public void hookSetClassVersion(String selectedProductName) {
+        UhfClassVersion uhfClassVersion = UhfClassVersion.valueOf(selectedProductName);
         ((UHFScanner) mBaseScanner).setClassVersion(uhfClassVersion);
     }
 
-    void addUhfClassVersionRadioButton() {
-        for (UhfClassVersion version : UhfClassVersion.values()) {
-            if (version != UhfClassVersion.NO_DEFINE) {
-                addRgProduct(version.name(), version.getValue());
-            }
-        }
-        mRgProduct.check(UhfClassVersion.TS800.getValue());
-        ((UHFScanner) mBaseScanner).setClassVersion(UhfClassVersion.TS800);
+    @Override
+    public void hookAddSpnCommunicationTypes() {
+        addSpnCommunicationType(new String[]{"Wi-Fi", BLE.name(), USB.name()});
+        mSpnCommunicationType.setSelection(0);
+        mBaseScanner.setCommunicationType(UDP);
     }
 
-    void addInterfaceRadioButton() {
-        for (CommunicationType type : CommunicationType.values()) {
-            if (type != UDP) {
-                if (type == TCP) {
-                    addRgInterface("Wi-Fi", type.ordinal(), v -> mBaseScanner.setCommunicationType(UDP));
-                } else {
-                    addRgInterface(type.name(), type.ordinal(), v -> mBaseScanner.setCommunicationType(BLE));
-                }
-            }
+    @Override
+    public void hookSetCommunicationType(String communicationType) {
+        try {
+            CommunicationType type = CommunicationType.valueOf(communicationType);
+            mBaseScanner.setCommunicationType(type);
+        } catch (IllegalArgumentException e) {
+            mBaseScanner.setCommunicationType(UDP);
         }
-        mRgInterface.check(BLE.ordinal());
     }
 
     @Override
@@ -80,13 +88,13 @@ public class DeviceScanFragment extends BaseScanFragment{
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
+    public void onStart() {
+        super.onStart();
         GLog.d(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
-        mRgProduct.check(UhfClassVersion.TS800.getValue());
-        ((UHFScanner) mBaseScanner).setClassVersion(UhfClassVersion.TS800);
-        mRgInterface.check(BLE.ordinal());
-        mBaseScanner.setCommunicationType(BLE);
+        mSpnProduct.setSelection(0);
+        ((UHFScanner) mBaseScanner).setClassVersion(UhfClassVersion.TS100);
+        mSpnCommunicationType.setSelection(0);
+        mBaseScanner.setCommunicationType(UDP);
     }
 
     public void requestNeededPermissions() {
@@ -113,4 +121,27 @@ public class DeviceScanFragment extends BaseScanFragment{
         RefWatcher refWatcher = LeakWatcherApplication.getRefWatcher(getActivity());
         refWatcher.watch(this);
     }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        IntentFilter filter = new IntentFilter(UsbManager.ACTION_USB_DEVICE_DETACHED);
+        getActivity().registerReceiver(mUsbReceiver, filter);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        getActivity().unregisterReceiver(mUsbReceiver);
+    }
+
+    BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            GLog.d(TAG, "Broadcast action: " + action);
+            if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
+                mDevicesAdapter.clear();
+            }
+        }
+    };
 }

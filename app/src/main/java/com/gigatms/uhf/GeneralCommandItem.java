@@ -1,11 +1,13 @@
-package com.gigatms.uhf.command;
+package com.gigatms.uhf;
 
+import android.support.annotation.Nullable;
 import android.view.View;
 
-import static com.gigatms.uhf.CommandRecyclerViewAdapter.BASE;
+import com.gigatms.uhf.paramsData.ParamData;
 
-public class Command {
-    private static final String TAG = Command.class.getSimpleName();
+import java.util.Arrays;
+
+public class GeneralCommandItem {
     private String mTitle;
     private String mRightBtnName;
     private String mLeftBtnName;
@@ -15,15 +17,19 @@ public class Command {
     private View.OnClickListener mWriteOnClickListener;
     private int position;
 
-    public Command(String title) {
+    private ParamData[] mViewDataArray;
+
+    public GeneralCommandItem(String title, ParamData... viewData) {
         mTitle = title;
         mRightBtnName = "Write";
         mLeftBtnName = "Read";
         mHasLeftBtn = true;
         mHasRightBtn = true;
+
+        mViewDataArray = viewData;
     }
 
-    public Command(String title, String leftBtnName, String rightBtnName) {
+    public GeneralCommandItem(String title, String leftBtnName, String rightBtnName, @Nullable ParamData... viewData) {
         mTitle = title;
         if (leftBtnName != null) {
             mLeftBtnName = leftBtnName;
@@ -34,6 +40,7 @@ public class Command {
             mRightBtnName = rightBtnName;
             mHasRightBtn = true;
         }
+        mViewDataArray = viewData;
     }
 
     public int getPosition() {
@@ -42,10 +49,6 @@ public class Command {
 
     public void setPosition(int position) {
         this.position = position;
-    }
-
-    public int getViewType() {
-        return BASE;
     }
 
     public String getTitle() {
@@ -82,5 +85,9 @@ public class Command {
 
     public void setLeftOnClickListener(View.OnClickListener writeOnClickListener) {
         mWriteOnClickListener = writeOnClickListener;
+    }
+
+    public ParamData[] getViewDataArray() {
+        return Arrays.copyOf(mViewDataArray, mViewDataArray.length);
     }
 }
