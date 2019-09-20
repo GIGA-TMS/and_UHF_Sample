@@ -24,7 +24,5 @@ public class LeakWatcherApplication extends Application {
         return application.refWatcher;
     }
 
-
-
     private RefWatcher refWatcher;
 }

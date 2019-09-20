@@ -14,11 +14,11 @@ import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.RadioButton;
-import android.widget.RadioGroup;
+import android.widget.Spinner;
 
 import com.gigatms.BaseDevice;
 import com.gigatms.BaseScanner;
@@ -32,7 +32,6 @@ import com.squareup.leakcanary.RefWatcher;
 import java.util.Objects;
 
 import static com.gigatms.CommunicationType.BLE;
-import static com.gigatms.CommunicationType.TCP;
 
 public abstract class BaseScanFragment extends DebugFragment implements ScannerCallback, ScanDebugCallback {
     private static final String TAG = BaseScanFragment.class.getSimpleName();
@@ -42,19 +41,22 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
     protected DevicesAdapter mDevicesAdapter;
     private Button mBtnScan;
     private RecyclerView mRecyclerView;
-    protected RadioGroup mRgProduct;
-    protected RadioGroup mRgInterface;
     private ConnectivitySimpleManager mConnectivitySimpleManager;
+    Spinner mSpnProduct;
+    Spinner mSpnCommunicationType;
 
     public abstract BaseScanner newScanner();
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        Log.d(TAG, "onCreateView: ");
         View view = inflater.inflate(R.layout.fragment_device_scan, container, false);
         mBaseScanner = newScanner();
         findViews(view);
         mConnectivitySimpleManager = new ConnectivitySimpleManager();
+        hookAddSpnCommunicationTypes();
+        hookAddSpnProducts();
         return view;
     }
 
@@ -84,6 +86,8 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
                 BluetoothManager bleManager = (BluetoothManager) Objects.requireNonNull(getContext()).getApplicationContext().getSystemService(Context.BLUETOOTH_SERVICE);
                 BluetoothAdapter bluetoothAdapter = bleManager.getAdapter();
                 return bluetoothAdapter.isEnabled();
+            case USB:
+                return true;
             default:
                 return false;
         }
@@ -114,7 +118,7 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
             mDevicesAdapter = new DevicesAdapter(getContext());
             mDevicesAdapter.setControlCallback(baseDevice ->
                     Objects.requireNonNull(getActivity()).getSupportFragmentManager().beginTransaction()
-                            .replace(R.id.fragment_container, DeviceControlFragment.newFragment(baseDevice.getDeviceMacAddr()))
+                            .replace(R.id.fragment_container, DeviceControlFragment.newFragment(baseDevice.getDeviceID()))
                             .addToBackStack(null)
                             .commit());
         } else {
@@ -125,43 +129,68 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
     private void findViews(View view) {
         mRecyclerView = view.findViewById(R.id.device_list);
         mBtnScan = view.findViewById(R.id.btn_scan);
-        mRgProduct = view.findViewById(R.id.rg_probuct);
-        mRgInterface = view.findViewById(R.id.rg_interface);
+        mSpnProduct = view.findViewById(R.id.spn_product);
+        mSpnCommunicationType = view.findViewById(R.id.spn_communication_type);
     }
 
-    public void addRgProduct(String text, int id) {
-        final RadioButton radioButton = new RadioButton(getContext());
-        radioButton.setText(text);
-        radioButton.setId(id);
-        radioButton.setOnClickListener(v -> {
-            int checkedProduct = radioButton.getId();
-            setClassVersion((byte) checkedProduct);
+    public abstract void hookAddSpnProducts();
+
+    public void addSpnProducts(String[] products) {
+        final ArrayAdapter<String> productsAdapter = new ArrayAdapter<>(getContext(),
+                android.R.layout.simple_spinner_dropdown_item,
+                products);
+        mSpnProduct.setAdapter(productsAdapter);
+        mSpnProduct.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                hookSetClassVersion(productsAdapter.getItem(position));
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
         });
-        mRgProduct.addView(radioButton);
     }
 
-    public abstract void setClassVersion(byte checkedProduct);
+    public abstract void hookSetClassVersion(String selectedProductName);
 
-    public void addRgInterface(String text, int id, OnClickListener onClickListener) {
-        RadioButton radioButton = new RadioButton(getContext());
-        radioButton.setText(text);
-        radioButton.setId(id);
-        radioButton.setOnClickListener(onClickListener);
-        mRgInterface.addView(radioButton);
+    public abstract void hookAddSpnCommunicationTypes();
+
+    public void addSpnCommunicationType(String[] communicationTypes) {
+        final ArrayAdapter<String> communicationTypeAdapter = new ArrayAdapter<>(getContext(),
+                android.R.layout.simple_spinner_dropdown_item,
+                communicationTypes);
+        mSpnCommunicationType.setAdapter(communicationTypeAdapter);
+        mSpnCommunicationType.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                hookSetCommunicationType(communicationTypeAdapter.getItem(position));
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
     }
+
+    public abstract void hookSetCommunicationType(String communicationType);
 
     @Override
-    public void onResume() {
-        super.onResume();
+    public void onStart() {
+        super.onStart();
+        Log.d(TAG, "onStart");
         setViews();
         mBaseScanner.setScanDebugCallback(this);
         mConnectivitySimpleManager.routeNetworkRequestsThroughWifi(null, getContext());
     }
 
+
     @Override
-    public void onPause() {
-        super.onPause();
-        Log.d(TAG, "onPause: ");
+    public void onStop() {
+        super.onStop();
+        Log.d(TAG, "onStop: ");
         if (mBaseScanner != null && isCommunicationEnable()) {
             mBaseScanner.stopScan();
             mBaseScanner.setScanDebugCallback(null);
@@ -174,13 +203,10 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
     @Override
     public void didDiscoveredDevice(final BaseDevice baseDevice) {
         Log.d(TAG, "didDiscoveredDevice: ");
-        String message = baseDevice.getDeviceName() + "\nMac Address: " + baseDevice.getDeviceMacAddr();
+        String message = baseDevice.getDeviceName() + "\nDevice ID: " + baseDevice.getDeviceID();
         if (getActivity() != null) {
             getActivity().runOnUiThread(() -> mDevicesAdapter.addDevice(baseDevice));
             if (mDebugFragmentListener != null) {
-                if (baseDevice.getCommunicationType().equals(TCP)) {
-                    message += ("\nIP: " + baseDevice.getDeviceIp());
-                }
                 mDebugFragmentListener.onUpdateDebugInformation(message, R.color.device_operation_background);
             }
             onUpdateLog(TAG, message);

@@ -1,6 +1,12 @@
 package com.gigatms.uhf;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Color;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -9,6 +15,7 @@ import android.support.design.widget.BottomNavigationView;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,25 +28,27 @@ import com.gigatms.CommunicationType;
 import com.gigatms.ConnectionState;
 import com.gigatms.DecodedTagData;
 import com.gigatms.DeviceDebugCallback;
+import com.gigatms.MU400H;
 import com.gigatms.TS100;
 import com.gigatms.TS800;
 import com.gigatms.TagInformationFormat;
 import com.gigatms.UHFCallback;
 import com.gigatms.UHFDevice;
 import com.gigatms.UR0250;
-import com.gigatms.uhf.command.CheckboxCommand;
-import com.gigatms.uhf.command.Command;
-import com.gigatms.uhf.command.EditTextCommand;
-import com.gigatms.uhf.command.SeekBarCommand;
-import com.gigatms.uhf.command.SpinnerCommand;
-import com.gigatms.uhf.command.TwoSpinnerCommand;
+import com.gigatms.uhf.paramsData.CheckboxParamData;
+import com.gigatms.uhf.paramsData.EditTextParamData;
+import com.gigatms.uhf.paramsData.SeekBarParamData;
+import com.gigatms.uhf.paramsData.SpinnerParamData;
+import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
 import com.gigatms.parameters.BuzzerAction;
 import com.gigatms.parameters.BuzzerOperationMode;
 import com.gigatms.parameters.EventType;
 import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
+import com.gigatms.parameters.KeyboardSimulation;
 import com.gigatms.parameters.MemoryBank;
 import com.gigatms.parameters.MemoryBankSelection;
+import com.gigatms.parameters.MissingInventoryThreshold;
 import com.gigatms.parameters.OutputInterface;
 import com.gigatms.parameters.PostDataDelimiter;
 import com.gigatms.parameters.RfSensitivityLevel;
@@ -54,12 +63,17 @@ import com.squareup.leakcanary.RefWatcher;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.gigatms.parameters.OutputInterface.DEFAULT;
+import static com.gigatms.parameters.OutputInterface.HID_KEYBOARD;
+import static com.gigatms.parameters.OutputInterface.TCP_SERVER;
 import static com.gigatms.parameters.Session.SL;
 
 public class DeviceControlFragment extends DebugFragment implements CommunicationCallback {
@@ -70,8 +84,6 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
     private boolean mTemp = false;
     private TextView mTvConnectionStatus;
     private TextView mTvMacAddress;
-    private TextView mTvIpValue;
-    private TextView mTvIp;
     private TextView mTvFirmware;
     private Button mBtnConnect;
 
@@ -83,28 +95,31 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
     private RecyclerView mRecyclerView;
     private CommandRecyclerViewAdapter mAdapter;
 
-    private Command mStopInventoryCommand;
-    private SpinnerCommand mInventoryCommand;
-    private CheckboxCommand<TagDataEncodeType> mInventoryExCommand;
+    private GeneralCommandItem mStopInventoryCommand;
+    private GeneralCommandItem mInventoryCommand;
+    private GeneralCommandItem mInventoryExCommand;
 
-    private EditTextCommand mBleDeviceNameCommand;
-    private SeekBarCommand mRfPowerCommand;
-    private SeekBarCommand mRfSensitivityCommand;
-    private TwoSpinnerCommand<Session, Target> mSessionTargetCommand;
-    private SeekBarCommand mQCommand;
-    private EditTextCommand mFrequencyCommand;
-    private SpinnerCommand<EventType> mEventTypeCommand;
-    private CheckboxCommand<OutputInterface> mOutputInterfaceCommand;
+    private GeneralCommandItem mBleDeviceNameCommand;
+    private GeneralCommandItem mRfPowerCommand;
+    private GeneralCommandItem mRfSensitivityCommand;
+    private GeneralCommandItem mSessionTargetCommand;
+    private GeneralCommandItem mQCommand;
+    private GeneralCommandItem mFrequencyCommand;
+    private GeneralCommandItem mTagRemovedEventThresholdCommand;
+    private GeneralCommandItem mTagPresentedEventThresholdCommand;
+    private GeneralCommandItem mOutputInterfacesCommand;
+    private GeneralCommandItem mOutputInterfaceCommand;
 
-    private SpinnerCommand<BuzzerOperationMode> mBuzzerOperationCommand;
-    private SpinnerCommand<BuzzerAction> mControlBuzzerCommand;
-    private SpinnerCommand<PostDataDelimiter> mPostDataDelimiterCommand;
-    private CheckboxCommand<MemoryBankSelection> mMemoryBankSelectionCommand;
-    private SpinnerCommand<TriggerType> mTriggerCommand;
-    private TwoSpinnerCommand<IONumber, IOState> mIoStateCommand;
-    private Command mDisableFilterCommand;
-    private CheckboxCommand<TagDataEncodeType> mEnableFilterCommand;
-    private CheckboxCommand<TagDataEncodeType> mGetFilterCommand;
+    private GeneralCommandItem mEventTypeCommand;
+    private GeneralCommandItem mBuzzerOperationCommand;
+    private GeneralCommandItem mControlBuzzerCommand;
+    private GeneralCommandItem mPostDataDelimiterCommand;
+    private GeneralCommandItem mMemoryBankSelectionCommand;
+    private GeneralCommandItem mTriggerCommand;
+    private GeneralCommandItem mIoStateCommand;
+    private GeneralCommandItem mFilterCommand;
+
+    private boolean mBackPressing = false;
 
     public static DeviceControlFragment newFragment(String devMacAddress) {
         Bundle args = new Bundle();
@@ -117,21 +132,22 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        Log.d(TAG, "onCreateView: ");
         View view = inflater.inflate(R.layout.fragment_device_control, container, false);
         findViews(view);
         initUHF();
         return view;
     }
 
-    @Override
-    public void onStart() {
-        super.onStart();
-        mUhf.setCommunicationCallback(this);
-    }
 
     @Override
     public void onResume() {
         super.onResume();
+        IntentFilter filter = new IntentFilter(UsbManager.ACTION_USB_DEVICE_DETACHED);
+        getActivity().registerReceiver(mUsbReceiver, filter);
+        Log.d(TAG, "onResume: ");
+        mUhf.setCommunicationCallback(this);
+        mUhf.setUHFCallback(mUHFCallback);
         GLog.d(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
         mAdapter = new CommandRecyclerViewAdapter();
         mRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -156,7 +172,7 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
         protected Object doInBackground(Object[] objects) {
             initCommandViews();
             if (mReadWriteTagFragment == null) {
-                mReadWriteTagFragment = ReadWriteTagFragment.newFragment(mUhf.getDeviceMacAddr());
+                mReadWriteTagFragment = ReadWriteTagFragment.newFragment(mUhf.getDeviceID());
             }
             return null;
         }
@@ -217,6 +233,8 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
             showTS800AdvanceSettingViews();
         } else if (mUhf instanceof UR0250) {
             showUR0250AdvanceSettingViews();
+        } else if (mUhf instanceof MU400H) {
+            showMU400AdvanceSettingViews();
         }
         mAdapter.notifyDataSetChanged();
     }
@@ -225,7 +243,7 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
         mAdapter.clear();
         mAdapter.add(mStopInventoryCommand);
         mAdapter.add(mInventoryCommand);
-        if (mUhf instanceof TS100) {
+        if (mUhf instanceof TS100 || mUhf instanceof MU400H) {
             mAdapter.add(mInventoryExCommand);
         }
         mAdapter.notifyDataSetChanged();
@@ -235,7 +253,10 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
         newStopInventoryCommand();
         newStartInventoryCommand();
         if (mUhf instanceof TS100) {
-            newStartInventoryCommandEx((TS100) mUhf);
+            newStartInventoryCommandEx(mUhf);
+        }
+        if (mUhf instanceof MU400H) {
+            newStartInventoryCommandEx(mUhf);
         }
     }
 
@@ -249,6 +270,8 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
         mAdapter.add(mSessionTargetCommand);
         mAdapter.add(mQCommand);
         mAdapter.add(mFrequencyCommand);
+        mAdapter.add(mTagPresentedEventThresholdCommand);
+        mAdapter.add(mTagRemovedEventThresholdCommand);
         mAdapter.notifyDataSetChanged();
     }
 
@@ -259,6 +282,27 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
         newSessionTargetCommand();
         newQCommand();
         newFrequencyCommand();
+        newTagRemovedEventThresholdCommand();
+        newTagPresentedEventThresholdCommand();
+    }
+
+    private void newTagPresentedEventThresholdCommand() {
+        mTagPresentedEventThresholdCommand = new GeneralCommandItem("Get/Set Tag Presented Event Threshold", new EditTextParamData("1~25s, 0:Always Repeat, -1: Never Repeat"));
+        mTagPresentedEventThresholdCommand.setLeftOnClickListener(v -> mUhf.getTagPresentedEventThreshold(mTemp));
+        mTagPresentedEventThresholdCommand.setRightOnClickListener(v -> {
+            EditTextParamData viewData = (EditTextParamData) mTagPresentedEventThresholdCommand.getViewDataArray()[0];
+            int period = Integer.parseInt(viewData.getSelected());
+            mUhf.setTagPresentedEventThreshold(mTemp, period);
+        });
+    }
+
+    private void newTagRemovedEventThresholdCommand() {
+        mTagRemovedEventThresholdCommand = new GeneralCommandItem("Get/Set Tag Removed Event Threshold", new SpinnerParamData<>(MissingInventoryThreshold.class));
+        mTagRemovedEventThresholdCommand.setLeftOnClickListener(v -> mUhf.getTagRemovedEventThreshold(mTemp));
+        mTagRemovedEventThresholdCommand.setRightOnClickListener(v -> {
+            SpinnerParamData viewData = (SpinnerParamData) mTagRemovedEventThresholdCommand.getViewDataArray()[0];
+            mUhf.setTagRemovedEventThreshold(mTemp, (MissingInventoryThreshold) viewData.getSelected());
+        });
     }
 
     private void newAdvanceCommands() {
@@ -268,18 +312,26 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
             newTS800Commands();
         } else if (mUhf instanceof UR0250) {
             newUr0250Commands();
+        } else if (mUhf instanceof MU400H) {
+            newMU400Commands();
         }
     }
 
     private void newTS800Commands() {
         final TS800 ts800 = (TS800) mUhf;
+        newBuzzerOperationCommand(ts800);
+        newControlBuzzerCommand(mUhf);
         newTS800TriggerCommand(ts800);
         newTS800IoStateCommand(ts800);
+        newOutputInterfaceCommand(ts800);
     }
 
     private void showTS800AdvanceSettingViews() {
+        mAdapter.add(mBuzzerOperationCommand);
+        mAdapter.add(mControlBuzzerCommand);
         mAdapter.add(mTriggerCommand);
         mAdapter.add(mIoStateCommand);
+        mAdapter.add(mOutputInterfaceCommand);
     }
 
     private void newUr0250Commands() {
@@ -294,64 +346,39 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
     }
 
     private void newTS100Commands() {
-        final TS100 ts100 = (TS100) mUhf;
-        newTS100BuzzerOperationCommand(ts100);
-        newTS100ControlBuzzerCommand(ts100);
-        newTS100OutputInterfaceCommand(ts100);
-        newTS100EventTypeCommand(ts100);
-        newTS100EnableFilterCommand(ts100);
-        newTS100DisableFilterCommand(ts100);
-        newTS100PostDataDelimiterCommand(ts100);
-        newTS100MemoryBankSelectionCommand(ts100);
-        newTS100DisableFilterCommand(ts100);
-        newTS100GetFilterTypeCommand(ts100);
+        newBuzzerOperationCommand((TS100) mUhf);
+        newControlBuzzerCommand(mUhf);
+        newOutputInterfacesCommand((TS100) mUhf);
+        newEventTypeCommand(mUhf);
+        newEnableFilterCommand(mUhf);
+        newPostDataDelimiterCommand(mUhf);
+        newMemoryBankSelectionCommand(mUhf);
     }
 
     void showTS100AdvanceSettingViews() {
         mAdapter.add(mBuzzerOperationCommand);
         mAdapter.add(mControlBuzzerCommand);
-        mAdapter.add(mOutputInterfaceCommand);
+        mAdapter.add(mOutputInterfacesCommand);
         mAdapter.add(mEventTypeCommand);
-        mAdapter.add(mDisableFilterCommand);
-        mAdapter.add(mEnableFilterCommand);
-        mAdapter.add(mGetFilterCommand);
+        mAdapter.add(mFilterCommand);
         mAdapter.add(mPostDataDelimiterCommand);
         mAdapter.add(mMemoryBankSelectionCommand);
     }
 
-    private void newTS100DisableFilterCommand(final TS100 ts100) {
-        mDisableFilterCommand = new Command("Disable Filter", null, "Disable");
-        mDisableFilterCommand.setRightOnClickListener(v -> ts100.disableFilter(mTemp));
+    private void newMU400Commands() {
+        newEventTypeCommand(mUhf);
+        newEnableFilterCommand(mUhf);
+        newPostDataDelimiterCommand(mUhf);
+        newMemoryBankSelectionCommand(mUhf);
+        newOutputInterfaceCommand((MU400H) mUhf);
     }
 
-    private void newTS100EnableFilterCommand(final TS100 ts100) {
-        mEnableFilterCommand = new CheckboxCommand<>("Enable Filter", null, "Enable", TagDataEncodeType.class);
-        mEnableFilterCommand.setRightOnClickListener(v -> {
-            Set<TagDataEncodeType> tagDataEncodeTypes = mEnableFilterCommand.getSelected();
-            ts100.enableFilter(mTemp, tagDataEncodeTypes);
-        });
-    }
-
-    private void newTS100GetFilterTypeCommand(final TS100 ts100) {
-        mGetFilterCommand = new CheckboxCommand<>("Get Filter", null, "Get", TagDataEncodeType.class);
-        mGetFilterCommand.setRightOnClickListener(v -> ts100.getFilter(mTemp));
-    }
-
-    private void newTS100ControlBuzzerCommand(final TS100 ts100) {
-        mControlBuzzerCommand = new SpinnerCommand<>("Control Buzzer", null, "Control", BuzzerAction.class);
-        mControlBuzzerCommand.setRightOnClickListener(v -> {
-            BuzzerAction buzzerAction = (BuzzerAction) mControlBuzzerCommand.getSelected();
-            ts100.controlBuzzer(buzzerAction);
-        });
-    }
-
-    private void newTS100BuzzerOperationCommand(final TS100 ts100) {
-        mBuzzerOperationCommand = new SpinnerCommand<>("Get/Set Buzzer Operation", BuzzerOperationMode.class);
-        mBuzzerOperationCommand.setLeftOnClickListener(v -> ts100.getBuzzerOperationMode(mTemp));
-        mBuzzerOperationCommand.setRightOnClickListener(v -> {
-            BuzzerOperationMode mode = (BuzzerOperationMode) mBuzzerOperationCommand.getSelected();
-            ts100.setBuzzerOperationMode(mTemp, mode);
-        });
+    void showMU400AdvanceSettingViews() {
+        mAdapter.add(mEventTypeCommand);
+        mAdapter.add(mFilterCommand);
+        mAdapter.add(mPostDataDelimiterCommand);
+        mAdapter.add(mMemoryBankSelectionCommand);
+        mAdapter.add(mOutputInterfaceCommand);
     }
 
     private void newTS800IoStateCommand(final TS800 ts800) {
@@ -363,30 +390,31 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
                 j++;
             }
         }
-        mIoStateCommand = new TwoSpinnerCommand<>("Set I/O State", ioNumbers, IOState.values());
+        mIoStateCommand = new GeneralCommandItem("Get/Set I/O State", new TwoSpinnerParamData<>(ioNumbers, IOState.values()));
         mIoStateCommand.setLeftOnClickListener(v -> ts800.getIOState());
         mIoStateCommand.setRightOnClickListener(v -> {
-            IONumber firstSelected = (IONumber) mIoStateCommand.getFirstSelected();
-            IOState secondSelected = (IOState) mIoStateCommand.getSecondSelected();
+            TwoSpinnerParamData twoSpinnerParamData = (TwoSpinnerParamData) mIoStateCommand.getViewDataArray()[0];
+            IONumber firstSelected = (IONumber) twoSpinnerParamData.getFirstSelected();
+            IOState secondSelected = (IOState) twoSpinnerParamData.getSecondSelected();
             ts800.setIOState(firstSelected, secondSelected);
         });
     }
 
     private void newTS800TriggerCommand(final TS800 ts800) {
-        mTriggerCommand = new SpinnerCommand<>("Get/Set Trigger", TriggerType.class);
+        mTriggerCommand = new GeneralCommandItem("Get/Set Trigger", new SpinnerParamData<>(TriggerType.class));
         mTriggerCommand.setLeftOnClickListener(v -> ts800.getTriggerType(mTemp));
         mTriggerCommand.setRightOnClickListener(v -> {
-            TriggerType triggerType = (TriggerType) mTriggerCommand.getSelected();
-            ts800.setTriggerType(mTemp, triggerType);
+            SpinnerParamData viewData = (SpinnerParamData) mTriggerCommand.getViewDataArray()[0];
+            ts800.setTriggerType(mTemp, (TriggerType) viewData.getSelected());
         });
     }
 
     private void newUr0250TriggerCommand(final UR0250 ur0250) {
-        mTriggerCommand = new SpinnerCommand<>("Get/Set Trigger", TriggerType.class);
+        mTriggerCommand = new GeneralCommandItem("Get/Set Trigger", new SpinnerParamData<>(TriggerType.class));
         mTriggerCommand.setLeftOnClickListener(v -> ur0250.getTriggerType(mTemp));
         mTriggerCommand.setRightOnClickListener(v -> {
-            TriggerType triggerType = (TriggerType) mTriggerCommand.getSelected();
-            ur0250.setTriggerType(mTemp, triggerType);
+            SpinnerParamData viewData = (SpinnerParamData) mTriggerCommand.getViewDataArray()[0];
+            ur0250.setTriggerType(mTemp, (TriggerType) viewData.getSelected());
         });
     }
 
@@ -399,30 +427,38 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
                 j++;
             }
         }
-        mIoStateCommand = new TwoSpinnerCommand<>("Set I/O State", ioNumbers, IOState.values());
+        mIoStateCommand = new GeneralCommandItem("Set I/O State", new TwoSpinnerParamData<>(ioNumbers, IOState.values()));
         mIoStateCommand.setLeftOnClickListener(v -> ur0250.getIOState());
         mIoStateCommand.setRightOnClickListener(v -> {
-            IONumber firstSelected = (IONumber) mIoStateCommand.getFirstSelected();
-            IOState secondSelected = (IOState) mIoStateCommand.getSecondSelected();
+            TwoSpinnerParamData twoSpinnerParamData = (TwoSpinnerParamData) mIoStateCommand.getViewDataArray()[0];
+            IONumber firstSelected = (IONumber) twoSpinnerParamData.getFirstSelected();
+            IOState secondSelected = (IOState) twoSpinnerParamData.getSecondSelected();
             ur0250.setIOState(firstSelected, secondSelected);
         });
     }
 
-    private void newStartInventoryCommandEx(final TS100 ts100) {
-        mInventoryExCommand = new CheckboxCommand<>("Start Inventory Ex", null, "Start Ex", TagDataEncodeType.class);
-        mInventoryExCommand.setRightOnClickListener(v -> ts100.startInventoryEx(mInventoryExCommand.getSelected()));
+    private void newStartInventoryCommandEx(final UHFDevice uhfDevice) {
+        mInventoryExCommand = new GeneralCommandItem("Start Inventory Ex", null, "Start Ex", new CheckboxParamData<>(TagDataEncodeType.class));
+        mInventoryExCommand.setRightOnClickListener(v -> {
+            CheckboxParamData viewData = (CheckboxParamData) mInventoryExCommand.getViewDataArray()[0];
+            if (uhfDevice instanceof TS100) {
+                ((TS100) uhfDevice).startInventoryEx(viewData.getSelected());
+            } else if (uhfDevice instanceof MU400H) {
+                ((MU400H) uhfDevice).startInventoryEx(viewData.getSelected());
+            }
+        });
     }
 
     private void newStartInventoryCommand() {
-        mInventoryCommand = new SpinnerCommand<>("Start Inventory", null, "Start", TagPresentedType.class);
+        mInventoryCommand = new GeneralCommandItem("Start Inventory", null, "Start", new SpinnerParamData<>(TagPresentedType.class));
         mInventoryCommand.setRightOnClickListener(v -> {
-            TagPresentedType tagPresentedType = (TagPresentedType) mInventoryCommand.getSelected();
-            mUhf.startInventory(tagPresentedType);
+            SpinnerParamData viewData = (SpinnerParamData) mInventoryCommand.getViewDataArray()[0];
+            mUhf.startInventory((TagPresentedType) viewData.getSelected());
         });
     }
 
     private void newStopInventoryCommand() {
-        mStopInventoryCommand = new Command("Stop Inventory", null, "Stop");
+        mStopInventoryCommand = new GeneralCommandItem("Stop Inventory", null, "Stop");
         mStopInventoryCommand.setRightOnClickListener(v -> mUhf.stopInventory());
     }
 
@@ -437,48 +473,164 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
     }
 
-    private void newTS100MemoryBankSelectionCommand(final TS100 ts100) {
-        mMemoryBankSelectionCommand = new CheckboxCommand<>("Get/Set Memory Bank Selection", MemoryBankSelection.class);
-        mMemoryBankSelectionCommand.setLeftOnClickListener(v -> ts100.getMemoryBankSelection(mTemp));
+    private void newEnableFilterCommand(final UHFDevice uhfDevice) {
+        mFilterCommand = new GeneralCommandItem("Get/Set Filter",
+                new CheckboxParamData<>(TagDataEncodeType.class));
+        mFilterCommand.setRightOnClickListener(v -> {
+            CheckboxParamData viewData = (CheckboxParamData) mFilterCommand.getViewDataArray()[0];
+            if (uhfDevice instanceof TS100) {
+                ((TS100) uhfDevice).setFilter(mTemp, viewData.getSelected());
+            } else if (uhfDevice instanceof MU400H) {
+                ((MU400H) uhfDevice).setFilter(mTemp, viewData.getSelected());
+            }
+        });
+        mFilterCommand.setLeftOnClickListener(v -> {
+            if (uhfDevice instanceof TS100) {
+                ((TS100) uhfDevice).getFilter(mTemp);
+            } else if (uhfDevice instanceof MU400H) {
+                ((MU400H) uhfDevice).getFilter(mTemp);
+            }
+        });
+    }
+
+    private void newControlBuzzerCommand(final UHFDevice uhfDevice) {
+        mControlBuzzerCommand = new GeneralCommandItem("Control Buzzer", null, "Control", new SpinnerParamData<>(BuzzerAction.class))
+        ;
+        mControlBuzzerCommand.setRightOnClickListener(v -> {
+            SpinnerParamData viewData = (SpinnerParamData) mControlBuzzerCommand.getViewDataArray()[0];
+            if (uhfDevice instanceof TS100) {
+                ((TS100) uhfDevice).controlBuzzer((BuzzerAction) viewData.getSelected());
+            } else if (uhfDevice instanceof TS800) {
+                ((TS800) uhfDevice).controlBuzzer((BuzzerAction) viewData.getSelected());
+            }
+        });
+    }
+
+    private void newBuzzerOperationCommand(final TS100 ts100) {
+        mBuzzerOperationCommand = new GeneralCommandItem("Get/Set Buzzer Operation", new SpinnerParamData<>(BuzzerOperationMode.class));
+        mBuzzerOperationCommand.setLeftOnClickListener(v -> {
+            ts100.getBuzzerOperationMode(mTemp);
+        });
+        mBuzzerOperationCommand.setRightOnClickListener(v -> {
+            SpinnerParamData viewData = (SpinnerParamData) mBuzzerOperationCommand.getViewDataArray()[0];
+            ts100.setBuzzerOperationMode(mTemp, (BuzzerOperationMode) viewData.getSelected());
+        });
+    }
+
+    private void newBuzzerOperationCommand(final TS800 ts800) {
+        mBuzzerOperationCommand = new GeneralCommandItem("Get/Set Buzzer Operation", new SpinnerParamData<>(new BuzzerOperationMode[]{BuzzerOperationMode.OFF, BuzzerOperationMode.REPEAT}));
+        mBuzzerOperationCommand.setLeftOnClickListener(v -> {
+            ts800.getBuzzerOperationMode(mTemp);
+        });
+        mBuzzerOperationCommand.setRightOnClickListener(v -> {
+            SpinnerParamData viewData = (SpinnerParamData) mBuzzerOperationCommand.getViewDataArray()[0];
+            ts800.setBuzzerOperationMode(mTemp, (BuzzerOperationMode) viewData.getSelected());
+        });
+    }
+
+    private void newMemoryBankSelectionCommand(final UHFDevice uhfDevice) {
+        mMemoryBankSelectionCommand = new GeneralCommandItem("Get/Set Memory Bank Selection", new SpinnerParamData<>(MemoryBankSelection.class));
+        mMemoryBankSelectionCommand.setLeftOnClickListener(v -> {
+            if (uhfDevice instanceof TS100) {
+                ((TS100) uhfDevice).getMemoryBankSelection(mTemp);
+            } else if (uhfDevice instanceof MU400H) {
+                ((MU400H) uhfDevice).getMemoryBankSelection(mTemp);
+            }
+        });
 
         mMemoryBankSelectionCommand.setRightOnClickListener(v -> {
-            Set<MemoryBankSelection> selected = mMemoryBankSelectionCommand.getSelected();
-            ts100.setMemoryBankSelection(mTemp, selected);
+            SpinnerParamData viewData = (SpinnerParamData) mMemoryBankSelectionCommand.getViewDataArray()[0];
+            if (uhfDevice instanceof TS100) {
+                ((TS100) uhfDevice).setMemoryBankSelection(mTemp, (MemoryBankSelection) viewData.getSelected());
+            } else if (uhfDevice instanceof MU400H) {
+                ((MU400H) uhfDevice).setMemoryBankSelection(mTemp, (MemoryBankSelection) viewData.getSelected());
+            }
         });
     }
 
-    private void newTS100PostDataDelimiterCommand(final TS100 ts100) {
-        mPostDataDelimiterCommand = new SpinnerCommand<>("Get/Set Post Data Delimiter", PostDataDelimiter.class);
-        mPostDataDelimiterCommand.setLeftOnClickListener(v -> ts100.getPostDataDelimiter(mTemp));
+    private void newPostDataDelimiterCommand(final UHFDevice uhfDevice) {
+        mPostDataDelimiterCommand = new GeneralCommandItem("Get/Set Post Data Delimiter", new SpinnerParamData<>(PostDataDelimiter.class));
+        mPostDataDelimiterCommand.setLeftOnClickListener(v -> {
+            if (uhfDevice instanceof TS100) {
+                ((TS100) uhfDevice).getPostDataDelimiter(mTemp);
+            } else if (uhfDevice instanceof MU400H) {
+                ((MU400H) uhfDevice).getPostDataDelimiter(mTemp);
+            }
+        });
         mPostDataDelimiterCommand.setRightOnClickListener(v -> {
-            PostDataDelimiter postDataDelimiter = (PostDataDelimiter) mPostDataDelimiterCommand.getSelected();
-            ts100.setPostDataDelimiter(mTemp, postDataDelimiter);
+            SpinnerParamData viewData = (SpinnerParamData) mPostDataDelimiterCommand.getViewDataArray()[0];
+            if (uhfDevice instanceof TS100) {
+                ((TS100) uhfDevice).setPostDataDelimiter(mTemp, (PostDataDelimiter) viewData.getSelected());
+            } else if (uhfDevice instanceof MU400H) {
+                ((MU400H) uhfDevice).setPostDataDelimiter(mTemp, (PostDataDelimiter) viewData.getSelected());
+            }
         });
     }
 
-    private void newTS100OutputInterfaceCommand(final TS100 ts100) {
-        mOutputInterfaceCommand = new CheckboxCommand<>("Get/Set Output Interface", OutputInterface.class);
-        mOutputInterfaceCommand.setLeftOnClickListener(v -> ts100.getOutputInterface(mTemp));
+    private void newOutputInterfaceCommand(final TS800 ts800) {
+        mOutputInterfaceCommand = new GeneralCommandItem("Get/Set Output Interface"
+                , new SpinnerParamData<>(new OutputInterface[]{DEFAULT, TCP_SERVER}));
+        mOutputInterfaceCommand.setLeftOnClickListener(v -> ts800.getOutputInterface(mTemp));
         mOutputInterfaceCommand.setRightOnClickListener(v -> {
-            Set<OutputInterface> selected = mOutputInterfaceCommand.getSelected();
-            ts100.setOutputInterface(mTemp, selected);
+            SpinnerParamData outputInterface = (SpinnerParamData) mOutputInterfaceCommand.getViewDataArray()[0];
+            ts800.setOutputInterface(mTemp, (OutputInterface) outputInterface.getSelected());
         });
     }
 
-    private void newTS100EventTypeCommand(final TS100 ts100) {
-        mEventTypeCommand = new SpinnerCommand<>("Get/Set Event Type", EventType.class);
-        mEventTypeCommand.setLeftOnClickListener(v -> ts100.getEventType(mTemp));
+    private void newOutputInterfaceCommand(final MU400H mu400H) {
+        mOutputInterfaceCommand = new GeneralCommandItem("Get/Set Output Interface"
+                , new SpinnerParamData<>(new OutputInterface[]{DEFAULT, HID_KEYBOARD}));
+        mOutputInterfaceCommand.setLeftOnClickListener(v -> mu400H.getOutputInterface(mTemp));
+        mOutputInterfaceCommand.setRightOnClickListener(v -> {
+            SpinnerParamData outputInterface = (SpinnerParamData) mOutputInterfaceCommand.getViewDataArray()[0];
+            mu400H.setOutputInterface(mTemp, (OutputInterface) outputInterface.getSelected());
+        });
+    }
+
+    private void newOutputInterfacesCommand(final TS100 ts100) {
+        Set<OutputInterface> outputInterfaces = new HashSet<>();
+        outputInterfaces.add(OutputInterface.HID_N_VCOM);
+        outputInterfaces.add(OutputInterface.TCP_CLIENT);
+        outputInterfaces.add(TCP_SERVER);
+        outputInterfaces.add(OutputInterface.BLE);
+        mOutputInterfacesCommand = new GeneralCommandItem("Get/Set Output Interfaces"
+                , new SpinnerParamData<>(KeyboardSimulation.class)
+                , new CheckboxParamData<>(outputInterfaces));
+        mOutputInterfacesCommand.setLeftOnClickListener(v -> {
+            ts100.getOutputInterfaces(mTemp);
+        });
+        mOutputInterfacesCommand.setRightOnClickListener(v -> {
+            SpinnerParamData keyboard = (SpinnerParamData) mOutputInterfacesCommand.getViewDataArray()[0];
+            CheckboxParamData outputInterface = (CheckboxParamData) mOutputInterfacesCommand.getViewDataArray()[1];
+            ts100.setOutputInterfaces(mTemp, (KeyboardSimulation) keyboard.getSelected(), outputInterface.getSelected());
+        });
+    }
+
+    private void newEventTypeCommand(final UHFDevice uhfDevice) {
+        mEventTypeCommand = new GeneralCommandItem("Get/Set Event Type", new SpinnerParamData<>(EventType.class));
+        mEventTypeCommand.setLeftOnClickListener(v -> {
+            if (uhfDevice instanceof TS100) {
+                ((TS100) uhfDevice).getEventType(mTemp);
+            } else if (uhfDevice instanceof MU400H) {
+                ((MU400H) uhfDevice).getEventType(mTemp);
+            }
+        });
         mEventTypeCommand.setRightOnClickListener(v -> {
-            EventType selected = (EventType) mEventTypeCommand.getSelected();
-            ts100.setEventType(mTemp, selected);
+            SpinnerParamData viewData = (SpinnerParamData) mEventTypeCommand.getViewDataArray()[0];
+            if (uhfDevice instanceof TS100) {
+                ((TS100) uhfDevice).setEventType(mTemp, (EventType) viewData.getSelected());
+            } else if (uhfDevice instanceof MU400H) {
+                ((MU400H) uhfDevice).setEventType(mTemp, (EventType) viewData.getSelected());
+            }
         });
     }
 
     private void newFrequencyCommand() {
-        mFrequencyCommand = new EditTextCommand("Get/Set Frequency", "840.250, 842.000, 843.250");
+        mFrequencyCommand = new GeneralCommandItem("Get/Set Frequency", new EditTextParamData("840.250, 842.000, 843.250"));
         mFrequencyCommand.setLeftOnClickListener(v -> mUhf.getFrequency(mTemp));
         mFrequencyCommand.setRightOnClickListener(v -> {
-            String selected = mFrequencyCommand.getSelected();
+            EditTextParamData viewData = (EditTextParamData) mFrequencyCommand.getViewDataArray()[0];
+            String selected = viewData.getSelected();
             String[] frequencyArray = selected.trim().split(",");
             if (frequencyArray.length > 1) {
                 try {
@@ -499,55 +651,56 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
     }
 
     private void newQCommand() {
-        mQCommand = new SeekBarCommand("Get/Set Q", 0, 15);
+        mQCommand = new GeneralCommandItem("Get/Set Q", new SeekBarParamData(0, 15));
         mQCommand.setLeftOnClickListener(v -> mUhf.getQValue(mTemp));
         mQCommand.setRightOnClickListener(v -> {
-            int selected = mQCommand.getSelected();
-            mUhf.setQValue(mTemp, selected);
+            SeekBarParamData viewData = (SeekBarParamData) mQCommand.getViewDataArray()[0];
+            mUhf.setQValue(mTemp, viewData.getSelected());
         });
     }
 
     private void newSessionTargetCommand() {
-        mSessionTargetCommand = new TwoSpinnerCommand<>("Get/Set Session and Target", Session.values(), Target.getAbTargets());
-        mSessionTargetCommand.setOnFirstItemSelected(selected -> {
-            if (selected.equals(SL) && !Target.slContains((Target) mSessionTargetCommand.getSecondEnums()[0])) {
-                mSessionTargetCommand.setSecondEnums(Target.getSlTargets());
+        mSessionTargetCommand = new GeneralCommandItem("Get/Set Session and Target", new TwoSpinnerParamData<>(Session.values(), Target.getAbTargets()));
+        TwoSpinnerParamData viewData = (TwoSpinnerParamData) mSessionTargetCommand.getViewDataArray()[0];
+        viewData.setOnFirstItemSelected(selected -> {
+            if (selected.equals(SL) && !Target.slContains((Target) viewData.getSecondEnums()[0])) {
+                viewData.setSecondEnums(Target.getSlTargets());
                 mAdapter.notifyItemChanged(mSessionTargetCommand.getPosition());
-            } else if ((!selected.equals(SL)) && !Target.abContains((Target) mSessionTargetCommand.getSecondEnums()[0])) {
-                mSessionTargetCommand.setSecondEnums(Target.getAbTargets());
+            } else if ((!selected.equals(SL)) && !Target.abContains((Target) viewData.getSecondEnums()[0])) {
+                viewData.setSecondEnums(Target.getAbTargets());
                 mAdapter.notifyItemChanged(mSessionTargetCommand.getPosition());
             }
         });
         mSessionTargetCommand.setLeftOnClickListener(v -> mUhf.getSessionAndTarget(mTemp));
         mSessionTargetCommand.setRightOnClickListener(v -> {
-            Session session = (Session) mSessionTargetCommand.getFirstSelected();
-            Target target = (Target) mSessionTargetCommand.getSecondSelected();
+            Session session = (Session) viewData.getFirstSelected();
+            Target target = (Target) viewData.getSecondSelected();
             mUhf.setSessionAndTarget(mTemp, session, target);
         });
     }
 
     private void newRfSensitivityCommand() {
-        mRfSensitivityCommand = new SeekBarCommand("Get/Set RF Sensitivity", 1, 14);
+        mRfSensitivityCommand = new GeneralCommandItem("Get/Set RF Sensitivity", new SeekBarParamData(1, 14));
         mRfSensitivityCommand.setLeftOnClickListener(v -> mUhf.getRfSensitivity(mTemp));
         mRfSensitivityCommand.setRightOnClickListener(v -> {
-            int level = mRfSensitivityCommand.getSelected();
-            mUhf.setRfSensitivity(mTemp, RfSensitivityLevel.getSensitivityFrom(level));
+            SeekBarParamData viewData = (SeekBarParamData) mRfSensitivityCommand.getViewDataArray()[0];
+            mUhf.setRfSensitivity(mTemp, RfSensitivityLevel.getSensitivityFrom(viewData.getSelected()));
         });
     }
 
     private void newRfPowerCommand() {
-        mRfPowerCommand = new SeekBarCommand("Get/Set RF Power", 1, 27);
+        mRfPowerCommand = new GeneralCommandItem("Get/Set RF Power", new SeekBarParamData(1, 27));
         mRfPowerCommand.setLeftOnClickListener(v -> mUhf.getRfPower(mTemp));
         mRfPowerCommand.setRightOnClickListener(v -> {
-            byte selected = (byte) mRfPowerCommand.getSelected();
-            mUhf.setRfPower(mTemp, selected);
+            SeekBarParamData viewData = (SeekBarParamData) mRfPowerCommand.getViewDataArray()[0];
+            mUhf.setRfPower(mTemp, (byte) viewData.getSelected());
         });
     }
 
     private void newBleDeviceNameCommand() {
-        mBleDeviceNameCommand = new EditTextCommand("Get/Set BLE Device Name", "BLE Device Name");
+        mBleDeviceNameCommand = new GeneralCommandItem("Get/Set BLE Device Name", new EditTextParamData("BLE Device Name"));
         mBleDeviceNameCommand.setRightOnClickListener(v -> {
-            String deviceName = mBleDeviceNameCommand.getSelected();
+            String deviceName = ((EditTextParamData) mBleDeviceNameCommand.getViewDataArray()[0]).getSelected();
             mUhf.setBleDeviceName(deviceName);
         });
         mBleDeviceNameCommand.setLeftOnClickListener(v -> mUhf.getBleDeviceName());
@@ -555,16 +708,11 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
     private void setDeviceInformation() {
         updateConnectionViews(mUhf.getConnectionState());
-        mTvMacAddress.setText(mUhf.getDeviceMacAddr());
-        if (mUhf.getCommunicationType() == CommunicationType.TCP) {
-            mTvIp.setVisibility(View.VISIBLE);
-            mTvIpValue.setVisibility(View.VISIBLE);
-            mTvIpValue.setText(mUhf.getDeviceIp());
+        mTvMacAddress.setText(mUhf.getDeviceID());
+        if (mUhf.getCommunicationType() != CommunicationType.BLE) {
             mTvBleFirmware.setVisibility(View.GONE);
             mTvBleFirmwareValue.setVisibility(View.GONE);
         } else {
-            mTvIp.setVisibility(View.GONE);
-            mTvIpValue.setVisibility(View.GONE);
             mTvBleFirmware.setVisibility(View.VISIBLE);
             mTvBleFirmwareValue.setVisibility(View.VISIBLE);
         }
@@ -574,9 +722,8 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
         assert getArguments() != null;
         String macAddress = getArguments().getString(MAC_ADDRESS);
         mUhf = (UHFDevice) ConnectedDevices.getInstance().get(macAddress);
-        assert mUhf != null;
+        //TODO when usb is mUHf
         GLog.d(TAG, mUhf.toString());
-        mUhf.setUHFCallback(mUHFCallback);
         mUhf.setDeviceDebugCallback(mDeviceDebugCallback);
     }
 
@@ -590,8 +737,6 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
         mBottomNavigationView = view.findViewById(R.id.bottom_navigation_view);
         mTvConnectionStatus = view.findViewById(R.id.tv_connection_status);
         mTvMacAddress = view.findViewById(R.id.tv_mac_address);
-        mTvIp = view.findViewById(R.id.tv_ip);
-        mTvIpValue = view.findViewById(R.id.tv_ip_value);
         mTvFirmware = view.findViewById(R.id.tv_firmware);
         mTvBleFirmwareValue = view.findViewById(R.id.tv_ble_firmware_value);
         mTvBleFirmware = view.findViewById(R.id.tv_ble_firmware);
@@ -641,7 +786,8 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
         @Override
         public void didGetRfPower(final byte rfPower) {
-            mRfPowerCommand.setSelected(rfPower);
+            SeekBarParamData viewData = (SeekBarParamData) mRfPowerCommand.getViewDataArray()[0];
+            viewData.setSelected(rfPower);
             mAdapter.notifyItemChanged(mRfPowerCommand.getPosition());
             onUpdateLog(TAG, "didGetRfPower: " + rfPower);
         }
@@ -653,23 +799,26 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
             Pattern pattern = Pattern.compile(regEx);
             Matcher matcher = pattern.matcher(sensitivityName);
             final int sensitivityValue = Integer.parseInt(matcher.replaceAll("").trim());
-            mRfSensitivityCommand.setSelected(sensitivityValue);
+            SeekBarParamData viewData = (SeekBarParamData) mRfSensitivityCommand.getViewDataArray()[0];
+            viewData.setSelected(sensitivityValue);
             mAdapter.notifyItemChanged(mRfSensitivityCommand.getPosition());
             onUpdateLog(TAG, "didGetRfSensitivity: " + sensitivity.name());
         }
 
         @Override
-        public void didGetFrequencyList(final ArrayList<Double> frequencyList) {
+        public void didGetFrequencyList(final List<Double> frequencyList) {
             String frequencyData = Arrays.toString(frequencyList.toArray());
-            mFrequencyCommand.setSelected(frequencyData.replace("[", "").replace("]", ""));
+            EditTextParamData selected = (EditTextParamData) mFrequencyCommand.getViewDataArray()[0];
+            selected.setSelected(frequencyData.replace("[", "").replace("]", ""));
             mAdapter.notifyItemChanged(mFrequencyCommand.getPosition());
             onUpdateLog(TAG, "didGetFrequencyList:\n" + frequencyData);
         }
 
         @Override
         public void didGetSessionAndTarget(final Session session, final Target target) {
-            mSessionTargetCommand.setFirstSelected(session);
-            mSessionTargetCommand.setSecondSelected(target);
+            TwoSpinnerParamData viewData = (TwoSpinnerParamData) mSessionTargetCommand.getViewDataArray()[0];
+            viewData.setFirstSelected(session);
+            viewData.setSecondSelected(target);
             mAdapter.notifyItemChanged(mSessionTargetCommand.getPosition());
             onUpdateLog(TAG, "didGetSessionAndTarget:" +
                     "\n\tSession: " + session.name() +
@@ -678,7 +827,8 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
         @Override
         public void didGetQValue(final byte qValue) {
-            mQCommand.setSelected(qValue);
+            SeekBarParamData viewData = (SeekBarParamData) mQCommand.getViewDataArray()[0];
+            viewData.setSelected(qValue);
             mAdapter.notifyItemChanged(mQCommand.getPosition());
             onUpdateLog(TAG, "didGetQValue: " + qValue);
         }
@@ -692,7 +842,8 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
         @Override
         public void didGetBleDeviceName(final String bleDeviceName) {
-            mBleDeviceNameCommand.setSelected(bleDeviceName);
+            EditTextParamData selected = (EditTextParamData) mBleDeviceNameCommand.getViewDataArray()[0];
+            selected.setSelected(bleDeviceName);
             mAdapter.notifyItemChanged(mBleDeviceNameCommand.getPosition());
             onUpdateLog(TAG, "didGetBleDeviceName: " + bleDeviceName);
             if (getActivity() != null) {
@@ -719,21 +870,28 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
         @Override
         public void didGetEventType(final EventType eventType) {
-            mEventTypeCommand.setSelected(eventType);
+            SpinnerParamData selected = (SpinnerParamData) mEventTypeCommand.getViewDataArray()[0];
+            selected.setSelected(eventType);
             mAdapter.notifyItemChanged(mEventTypeCommand.getPosition());
             onUpdateLog(TAG, "didGetEventType: " + eventType.name());
         }
 
         @Override
-        public void didGetOutputInterface(final Set<OutputInterface> outputInterfaces) {
-            mOutputInterfaceCommand.setSelected(outputInterfaces);
-            mAdapter.notifyItemChanged(mOutputInterfaceCommand.getPosition());
-            onUpdateLog(TAG, "didGetOutputInterface: " + Arrays.toString(outputInterfaces.toArray()));
+        public void didGetOutputInterfaces(KeyboardSimulation keyboardSimulation, final Set<OutputInterface> outputInterfaces) {
+            SpinnerParamData selected1 = (SpinnerParamData) mOutputInterfacesCommand.getViewDataArray()[0];
+            selected1.setSelected(keyboardSimulation);
+            CheckboxParamData selected2 = (CheckboxParamData) mOutputInterfacesCommand.getViewDataArray()[1];
+            selected2.setSelected(outputInterfaces);
+            mAdapter.notifyItemChanged(mOutputInterfacesCommand.getPosition());
+            onUpdateLog(TAG, "didGetOutputInterface: " +
+                    "\n\tKeyboardSimulation: " + keyboardSimulation +
+                    "\n\tOutputInterface: " + Arrays.toString(outputInterfaces.toArray()));
         }
 
         @Override
         public void didGetBuzzerOperationMode(final BuzzerOperationMode buzzerOperationMode) {
-            mBuzzerOperationCommand.setSelected(buzzerOperationMode);
+            SpinnerParamData selected1 = (SpinnerParamData) mBuzzerOperationCommand.getViewDataArray()[0];
+            selected1.setSelected(buzzerOperationMode);
             mAdapter.notifyItemChanged(mBuzzerOperationCommand.getPosition());
             onUpdateLog(TAG, "didGetBuzzerOperationMode: " + buzzerOperationMode.name());
         }
@@ -750,7 +908,8 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
         @Override
         public void didGetTriggerType(final TriggerType triggerSource) {
-            mTriggerCommand.setSelected(triggerSource);
+            SpinnerParamData selected1 = (SpinnerParamData) mTriggerCommand.getViewDataArray()[0];
+            selected1.setSelected(triggerSource);
             mAdapter.notifyItemChanged(mTriggerCommand.getPosition());
             onUpdateLog(TAG, "didGetTriggerType: " + triggerSource.name());
         }
@@ -758,7 +917,6 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
         @Override
         public void didDiscoverTagInfo(TagInformationFormat tagInformationFormat) {
             String message = "didDiscoverTagInfo(Inventory Event):" +
-                    "\n\tAntenna: " + tagInformationFormat.getAntenna() +
                     "\n\tFrequency: " + tagInformationFormat.getFrequency() +
                     "\n\tRssi: " + tagInformationFormat.getRssi() +
                     "\n\tPC EPC: " + tagInformationFormat.getPcEPCHex();
@@ -789,6 +947,18 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
         }
 
         @Override
+        public void didTagRemoved(TagInformationFormat tagInformationFormat) {
+            String message = "didTagRemoved:" +
+                    "\n\tFrequency: " + tagInformationFormat.getFrequency() +
+                    "\n\tRssi: " + tagInformationFormat.getRssi() +
+                    "\n\tPC EPC: " + tagInformationFormat.getPcEPCHex();
+            if (tagInformationFormat.getTidHex().length() != 0) {
+                message = message + "\n\tTID: " + tagInformationFormat.getTidHex();
+            }
+            onUpdateLog(TAG, message);
+        }
+
+        @Override
         public void didReadEpc(byte[] epc) {
             mReadWriteTagFragment.setEpc(epc);
             onUpdateLog(TAG, "didReadEpc: " + GTool.bytesToHexString(epc));
@@ -796,59 +966,86 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
 
         @Override
         public void didGetPostDataDelimiter(PostDataDelimiter postDataDelimiter) {
-            mPostDataDelimiterCommand.setSelected(postDataDelimiter);
+            SpinnerParamData selected1 = (SpinnerParamData) mPostDataDelimiterCommand.getViewDataArray()[0];
+            selected1.setSelected(postDataDelimiter);
             mAdapter.notifyItemChanged(mPostDataDelimiterCommand.getPosition());
             onUpdateLog(TAG, "didGetPostDataDelimiter: " + postDataDelimiter);
         }
 
         @Override
-        public void didGetMemoryBankSelection(Set<MemoryBankSelection> memoryBankSelection) {
-            mMemoryBankSelectionCommand.setSelected(memoryBankSelection);
+        public void didGetMemoryBankSelection(MemoryBankSelection memoryBankSelection) {
+            SpinnerParamData selected1 = (SpinnerParamData) mMemoryBankSelectionCommand.getViewDataArray()[0];
+            selected1.setSelected(memoryBankSelection);
             mAdapter.notifyItemChanged(mMemoryBankSelectionCommand.getPosition());
-            onUpdateLog(TAG, "didGetMemoryBankSelection: " + Arrays.toString(memoryBankSelection.toArray()));
+            onUpdateLog(TAG, "didGetMemoryBankSelection: " + memoryBankSelection);
         }
 
         @Override
         public void didGetFilter(Set<TagDataEncodeType> tagDataEncodeTypes) {
-            mGetFilterCommand.setSelected(tagDataEncodeTypes);
-            mAdapter.notifyItemChanged(mGetFilterCommand.getPosition());
-            if (tagDataEncodeTypes == null || tagDataEncodeTypes.size() == 0) {
-                onUpdateLog(TAG, "didGetFilter: Filter is disable.");
-            } else {
-                onUpdateLog(TAG, "didGetFilter: " + Arrays.toString(tagDataEncodeTypes.toArray()));
-            }
+            CheckboxParamData selected1 = (CheckboxParamData) mFilterCommand.getViewDataArray()[0];
+            selected1.setSelected(tagDataEncodeTypes);
+            mAdapter.notifyItemChanged(mFilterCommand.getPosition());
+            onUpdateLog(TAG, "didGetFilter: " + Arrays.toString(tagDataEncodeTypes.toArray()));
+        }
+
+        @Override
+        public void didGetTagPresentedEventThreshold(int period) {
+            EditTextParamData selected = (EditTextParamData) mTagPresentedEventThresholdCommand.getViewDataArray()[0];
+            selected.setSelected(period + "");
+            mAdapter.notifyItemChanged(mTagPresentedEventThresholdCommand.getPosition());
+            onUpdateLog(TAG, "didGetTagPresentedEventThreshold: " + period + "s");
+        }
+
+        @Override
+        public void didGetTagRemovedEventThreshold(MissingInventoryThreshold missingInventoryThreshold) {
+            SpinnerParamData selected1 = (SpinnerParamData) mTagRemovedEventThresholdCommand.getViewDataArray()[0];
+            selected1.setSelected(missingInventoryThreshold);
+            mAdapter.notifyItemChanged(mTagRemovedEventThresholdCommand.getPosition());
+            onUpdateLog(TAG, "didGetTagRemovedEventThreshold: " + missingInventoryThreshold.name());
+        }
+
+        @Override
+        public void didGetOutputInterface(OutputInterface outputInterface) {
+            SpinnerParamData selected1 = (SpinnerParamData) mOutputInterfaceCommand.getViewDataArray()[0];
+            selected1.setSelected(outputInterface);
+            mAdapter.notifyItemChanged(mOutputInterfaceCommand.getPosition());
+            onUpdateLog(TAG, "didGetOutputInterface: " + outputInterface.name());
         }
     };
 
     @Override
     public void didUpdateConnection(final ConnectionState connectState, CommunicationType type) {
+        GLog.d(TAG, "Connected Device: " + Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
         if (getActivity() != null) {
             getActivity().runOnUiThread(() -> updateConnectionViews(connectState));
         }
         if (connectState.equals(ConnectionState.CONNECTED)) {
             mUhf.initializeSettings();
         }
-        onUpdateDebugLog(TAG, GLog.v(TAG, "didUpdateConnection: " + mUhf.getDeviceMacAddr() + ": " + connectState.name()));
+        onUpdateDebugLog(TAG, "didUpdateConnection: " + mUhf.getDeviceID() + ": " + connectState.name());
     }
 
     void updateConnectionViews(ConnectionState connectState) {
-        mTvConnectionStatus.setText(connectState.name());
-        switch (connectState) {
-            case CONNECTED:
-                mBtnConnect.setEnabled(true);
-                mBtnConnect.setText(getString(R.string.disconnect));
-                mTvConnectionStatus.setBackgroundColor(Color.GREEN);
-                break;
-            case CONNECTING:
-                mBtnConnect.setEnabled(false);
-                mBtnConnect.setText(getString(R.string.connecting));
-                mTvConnectionStatus.setBackgroundColor(Color.GRAY);
-                break;
-            case DISCONNECTED:
-                mBtnConnect.setEnabled(true);
-                mBtnConnect.setText(getString(R.string.connect));
-                mTvConnectionStatus.setBackgroundColor(Color.RED);
-                break;
+        if (!mBackPressing) {
+            GLog.d(TAG, "updateConnectionViews: " + connectState);
+            mTvConnectionStatus.setText(connectState.name());
+            switch (connectState) {
+                case CONNECTED:
+                    mBtnConnect.setEnabled(true);
+                    mBtnConnect.setText(getString(R.string.disconnect));
+                    mTvConnectionStatus.setBackgroundColor(Color.GREEN);
+                    break;
+                case CONNECTING:
+                    mBtnConnect.setEnabled(false);
+                    mBtnConnect.setText(getString(R.string.connecting));
+                    mTvConnectionStatus.setBackgroundColor(Color.GRAY);
+                    break;
+                case DISCONNECTED:
+                    mBtnConnect.setEnabled(true);
+                    mBtnConnect.setText(getString(R.string.connect));
+                    mTvConnectionStatus.setBackgroundColor(Color.RED);
+                    break;
+            }
         }
     }
 
@@ -860,7 +1057,7 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
                 updateConnectionViews(mUhf.getConnectionState());
             });
         }
-        onUpdateDebugLog(TAG, GLog.v(TAG, "Connection Timeout: " + mUhf.getDeviceMacAddr() + ": " + mUhf.getConnectionState().name()));
+        onUpdateDebugLog(TAG, GLog.v(TAG, "Connection Timeout: " + mUhf.getDeviceID() + ": " + mUhf.getConnectionState().name()));
     }
 
     private DeviceDebugCallback mDeviceDebugCallback = new DeviceDebugCallback() {
@@ -901,15 +1098,13 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
     public void onPause() {
         super.onPause();
         GLog.d(TAG, "onPause");
-        mRecyclerView.setAdapter(null);
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        GLog.d(TAG, "onStop");
+        getActivity().unregisterReceiver(mUsbReceiver);
         mUhf.setCommunicationCallback(null);
-        mUhf.disconnect();
+        mUhf.setUHFCallback(null);
+        mRecyclerView.setAdapter(null);
+        if (mUhf.getConnectionState() != ConnectionState.DISCONNECTED) {
+            mUhf.disconnect();
+        }
     }
 
     @Override
@@ -918,7 +1113,7 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
         GLog.d(TAG, "onDestroy");
         getChildFragmentManager().beginTransaction()
                 .remove(mReadWriteTagFragment);
-        ConnectedDevices.getInstance().clear(mUhf.getDeviceMacAddr());
+        ConnectedDevices.getInstance().clear(mUhf.getDeviceID());
         RefWatcher refWatcher = LeakWatcherApplication.getRefWatcher(getContext());
         refWatcher.watch(this);
     }
@@ -937,4 +1132,18 @@ public class DeviceControlFragment extends DebugFragment implements Communicatio
             }
         });
     }
+
+    BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            GLog.d(TAG, "Broadcast action: " + action);
+            if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
+                UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                if (device != null) {
+                    mBackPressing = true;
+                    getActivity().onBackPressed();
+                }
+            }
+        }
+    };
 }

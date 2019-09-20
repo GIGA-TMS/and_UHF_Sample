@@ -6,26 +6,12 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.gigatms.uhf.command.Command;
-import com.gigatms.uhf.view.BaseCommandViewHolder;
-import com.gigatms.uhf.view.CheckboxCommandViewHolder;
-import com.gigatms.uhf.view.EditTextCommandViewHolder;
-import com.gigatms.uhf.view.SeekBarCommandViewHolder;
-import com.gigatms.uhf.view.SpinnerViewHolder;
-import com.gigatms.uhf.view.TwoSpinnerCommandViewHolder;
-
 import java.util.ArrayList;
 import java.util.List;
 
-public class CommandRecyclerViewAdapter extends RecyclerView.Adapter<BaseCommandViewHolder> {
-    public static final int BASE = 0;
-    public static final int EDIT_TEXT = 1;
-    public static final int SPINNER = 2;
-    public static final int TWO_SPINNER = 3;
-    public static final int TABLE = 4;
-    public static final int SEEK_BAR = 5;
+public class CommandRecyclerViewAdapter extends RecyclerView.Adapter<GeneralViewHolder> {
     private static final String TAG = CommandRecyclerViewAdapter.class.getSimpleName();
-    private List<Command> mCommands;
+    private List<GeneralCommandItem> mCommands;
 
     CommandRecyclerViewAdapter() {
         mCommands = new ArrayList<>();
@@ -33,41 +19,16 @@ public class CommandRecyclerViewAdapter extends RecyclerView.Adapter<BaseCommand
 
     @NonNull
     @Override
-    public BaseCommandViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int viewType) {
-        switch (viewType) {
-            case SEEK_BAR:
-                View view = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.command_seekbar, viewGroup, false);
-                return new SeekBarCommandViewHolder(view);
-            case EDIT_TEXT:
-                view = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.command_edittext, viewGroup, false);
-                return new EditTextCommandViewHolder(view);
-            case SPINNER:
-                view = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.command_spinner, viewGroup, false);
-                return new SpinnerViewHolder(view);
-            case TWO_SPINNER:
-                view = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.command_two_spinner, viewGroup, false);
-                return new TwoSpinnerCommandViewHolder(view);
-            case TABLE:
-                view = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.command_checkbox, viewGroup, false);
-                return new CheckboxCommandViewHolder(view);
-            case BASE:
-            default:
-                view = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.command_base, viewGroup, false);
-                return new BaseCommandViewHolder(view);
-        }
+    public GeneralViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int viewType) {
+        View view = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.command_table, viewGroup, false);
+        return new GeneralViewHolder(view);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull BaseCommandViewHolder viewHolder, int position) {
-        Command command = mCommands.get(position);
+    public void onBindViewHolder(@NonNull GeneralViewHolder viewHolder, int position) {
+        GeneralCommandItem command = mCommands.get(position);
         command.setPosition(position);
         viewHolder.bindView(command);
-    }
-
-
-    @Override
-    public int getItemViewType(int position) {
-        return mCommands.get(position).getViewType();
     }
 
     @Override
@@ -75,7 +36,7 @@ public class CommandRecyclerViewAdapter extends RecyclerView.Adapter<BaseCommand
         return mCommands.size();
     }
 
-    void add(Command command) {
+    void add(GeneralCommandItem command) {
         mCommands.add(command);
     }
 

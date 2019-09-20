@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -55,21 +56,37 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(TAG, "onCreate: ");
         Fabric.with(this, new Crashlytics());
         setContentView(R.layout.activity_main);
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragment_container, new DeviceScanFragment())
-                .commit();
+
+        if (getSupportFragmentManager().findFragmentById(R.id.fragment_container) == null) {
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, new DeviceScanFragment())
+                    .commit();
+        }
         getAppVersion();
         findViews();
     }
 
     @Override
+    public void onConfigurationChanged(final Configuration newConfig) {
+        // Ignore orientation change to keep activity from restarting
+        super.onConfigurationChanged(newConfig);
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
+        Log.d(TAG, "onResume");
         requestNeededPermissions();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Log.d(TAG, "onStart");
         setDebugView();
-        DebugFragment.setDebugListener(this);
     }
 
     private void getAppVersion() {
@@ -87,8 +104,9 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
+    protected void onStop() {
+        super.onStop();
+        Log.d(TAG, "onStop: ");
         DebugFragment.setDebugListener(null);
     }
 
@@ -142,9 +160,10 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
         setDebugButtonListener();
         mDebugSharedPreferences = this.getSharedPreferences(getString(R.string.debug_mode), Context.MODE_PRIVATE);
         mDebugMode = mDebugSharedPreferences.getBoolean(DEBUG, false);
-        switchDebugView(mDebugMode);
+        switchLogView(mDebugMode);
         setTbLogView();
         mTvInformation.setOnLongClickListener(v -> false);
+        DebugFragment.setDebugListener(this);
     }
 
     private void setTbLogView() {
@@ -169,21 +188,19 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
 
     private void setDebugButtonListener() {
         mBtnDebug.setOnClickListener(v -> {
-            //Debug mode
             mTime = System.currentTimeMillis();
             if (mFirstClick) {
                 mClickDebugCount++;
                 mTemp = System.currentTimeMillis();
                 mFirstClick = false;
             } else {
-                Log.d(TAG, "onClick: mTime - mTemp: " + (mTime - mTemp));
                 if (mTime - mTemp < 2000) {
                     mTemp = mTime;
                     mClickDebugCount++;
                     if (mClickDebugCount == 10) {
                         mDebugMode = !mDebugMode;
                         mDebugSharedPreferences.edit().putBoolean(DEBUG, mDebugMode).apply();
-                        switchDebugView(mDebugMode);
+                        switchLogView(mDebugMode);
                         clearDebugCountData();
 
                     }
@@ -191,15 +208,10 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
                     clearDebugCountData();
                 }
             }
-            Log.d(TAG, "onClick: " +
-                    "\nmTime:" + mTime
-                    + "\nmTemp:" + mTemp
-                    + "\nclick debug count: " + mClickDebugCount
-                    + "\nfirst click: " + mFirstClick);
         });
     }
 
-    void switchDebugView(boolean debugMode) {
+    void switchLogView(boolean debugMode) {
         mTvLog.setText("");
         if (debugMode) {
             mTvInformation.setText("");

@@ -217,7 +217,26 @@ Two constructors of BaseDevice as below are deleted.
 
     public UHFDevice(String deviceName, String wifiMacAddress, String ip, String port);
 ```
-Please use TS800, TS100 or UR0250 classees while trying to new a UHFDevice.
+Please use TS800, TS100 or UR0250 classes while trying to new a UHFDevice.
+
+--------
+--------
+# Upgrade UHF SDK from 2.0.0.1 to 2.0.0.2
+
+## BaseDevice 
+
+getDeviceMacAddr and getDeviceIp method is now deleted.
+
+```java
+    public String getDeviceMacAddr() 
+
+    public String getDeviceIp()
+```
+Please call `getDeviceID` method to get BLE Mac Address while connected with remote device through BLE.
+
+Please call `getDeviceID` method to get Ip while connected with remote device through TCP(Wi-Fi).
+
+It is not able to get the macAddres of remote device while connected through TCP(Wi-Fi)
 
 Support
 -------
