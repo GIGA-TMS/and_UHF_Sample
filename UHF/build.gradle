@@ -1,2 +1,2 @@
 configurations.maybeCreate("default")
-artifacts.add("default", file('uhf_release_v2.0.0.2.aar'))
+artifacts.add("default", file('uhf_release_v2.0.0.4.aar'))

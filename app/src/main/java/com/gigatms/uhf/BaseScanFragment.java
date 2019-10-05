@@ -6,11 +6,6 @@ import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v7.widget.DividerItemDecoration;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -20,6 +15,12 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.Spinner;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.DividerItemDecoration;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
 import com.gigatms.BaseDevice;
 import com.gigatms.BaseScanner;
 import com.gigatms.CommunicationType;
@@ -27,7 +28,6 @@ import com.gigatms.ConnectivitySimpleManager;
 import com.gigatms.ScanDebugCallback;
 import com.gigatms.ScannerCallback;
 import com.gigatms.tools.GLog;
-import com.squareup.leakcanary.RefWatcher;
 
 import java.util.Objects;
 
@@ -116,15 +116,13 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
     private void initDevicesAdapter() {
         if (mDevicesAdapter == null) {
             mDevicesAdapter = new DevicesAdapter(getContext());
-            mDevicesAdapter.setControlCallback(baseDevice ->
-                    Objects.requireNonNull(getActivity()).getSupportFragmentManager().beginTransaction()
-                            .replace(R.id.fragment_container, DeviceControlFragment.newFragment(baseDevice.getDeviceID()))
-                            .addToBackStack(null)
-                            .commit());
+            mDevicesAdapter.setControlCallback(this::hookReplaceToDeviceFragment);
         } else {
             mDevicesAdapter.clear();
         }
     }
+
+    protected abstract void hookReplaceToDeviceFragment(BaseDevice baseDevice);
 
     private void findViews(View view) {
         mRecyclerView = view.findViewById(R.id.device_list);
@@ -237,7 +235,5 @@ public abstract class BaseScanFragment extends DebugFragment implements ScannerC
         super.onDestroy();
         Log.d(TAG, "onDestroy: ");
         mBaseScanner.onDestroy();
-        RefWatcher refWatcher = LeakWatcherApplication.getRefWatcher(getActivity());
-        refWatcher.watch(this);
     }
 }

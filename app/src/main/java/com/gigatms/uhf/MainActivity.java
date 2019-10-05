@@ -7,22 +7,19 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.constraint.Guideline;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.view.GestureDetectorCompat;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.GestureDetector;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ScrollView;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.core.view.GestureDetectorCompat;
 
 import com.crashlytics.android.Crashlytics;
 import com.gigatms.BaseDevice;
@@ -32,14 +29,12 @@ import io.fabric.sdk.android.Fabric;
 
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
-import static android.support.v4.content.PermissionChecker.PERMISSION_GRANTED;
+import static androidx.core.content.PermissionChecker.PERMISSION_GRANTED;
 import static com.gigatms.uhf.BaseScanFragment.DEBUG;
 
 public class MainActivity extends AppCompatActivity implements DebugFragment.DebugFragmentListener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
-    public static final float HIDE_LOG_RATIO = 0f;
-    public static final float SHOW_LOG_RATIO = 0.25f;
     private final int REQUEST_COARSE_LOCATION = 99;
 
     private Button mBtnDebug;
@@ -51,7 +46,6 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
     private TextView mTvInformation;
     private ScrollView mScrollView;
     private SharedPreferences mDebugSharedPreferences;
-    private Guideline mGuideline;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,28 +104,6 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
         DebugFragment.setDebugListener(null);
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.fragment_device_control, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.menu_item_hide_log) {
-            if (item.getTitle().equals(getString(R.string.hide_log_view))) {
-                mGuideline.setGuidelinePercent(HIDE_LOG_RATIO);
-                item.setTitle(getString(R.string.show_log_view));
-            } else {
-                mGuideline.setGuidelinePercent(SHOW_LOG_RATIO);
-                item.setTitle(getString(R.string.hide_log_view));
-            }
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
     public void requestNeededPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (ContextCompat.checkSelfPermission(this, ACCESS_COARSE_LOCATION) != PERMISSION_GRANTED) {
@@ -152,7 +124,6 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
         mScrollView = findViewById(R.id.scrollView);
         mTvLog = findViewById(R.id.tv_log);
         mTvInformation = findViewById(R.id.tv_information);
-        mGuideline = findViewById(R.id.guideline);
     }
 
     private void setDebugView() {

@@ -10,6 +10,12 @@ public class EditTextParamData extends ParamData {
         mSelected = "";
     }
 
+    public EditTextParamData(String hint, String defaultData) {
+        super(ViewType.EDIT_TEXT);
+        mHint = hint;
+        mSelected = defaultData;
+    }
+
     public String getHint() {
         return mHint;
     }

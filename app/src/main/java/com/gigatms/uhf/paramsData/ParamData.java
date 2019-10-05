@@ -21,8 +21,16 @@ public class ParamData {
         BASE,
         SPINNER,
         TWO_SPINNER,
+        CHECKBOX,
         CHECKBOX_LIST,
         SEEK_BAR,
         EDIT_TEXT,
+
+
+        SPINNER_WITH_TITLE,
+        SEEK_BAR_WITH_TITLE,
+        TWO_SPINNER_WITH_TITLE,
+        EDIT_TEXT_WITH_TITLE,
+
     }
 }
