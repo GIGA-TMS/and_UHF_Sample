@@ -27,6 +27,7 @@ import com.gigatms.parameters.ScanMode;
 import com.gigatms.parameters.Session;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
+import com.gigatms.parameters.TextTagEventType;
 import com.gigatms.tools.GTool;
 
 import java.util.ArrayList;
@@ -42,7 +43,8 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
     private static final String TAG = NR800DeviceControlFragment.class.getSimpleName();
 
     private GeneralCommandItem mStopInventoryCommand;
-    private GeneralCommandItem mInventoryCommand;
+    private GeneralCommandItem mSimpleStartIventoryCommand;
+    private GeneralCommandItem mStartInventoryCommand;
 
     private GeneralCommandItem mReadWriteEpcCommand;
     private GeneralCommandItem mReadTagCommand;
@@ -65,6 +67,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mControlBuzzerCommand;
     private GeneralCommandItem mTagEventIntervalCommand;
     private GeneralCommandItem mVibratorStateCommand;
+    private GeneralCommandItem mTextTagEventTypeCommand;
 
     public static NR800DeviceControlFragment newFragment(String devMacAddress) {
         Bundle args = new Bundle();
@@ -321,6 +324,15 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mScanModeCommand.getPosition()));
                 onUpdateLog(TAG, "didGetScanMode: " + scanMode.name());
             }
+
+            @Override
+            public void didGetTextTagEventType(TextTagEventType textTagEventType) {
+                SpinnerParamData textTagEventView = (SpinnerParamData) mTextTagEventTypeCommand.getViewDataArray()[0];
+                textTagEventView.setSelected(textTagEventType);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTextTagEventTypeCommand.getPosition()));
+                onUpdateLog(TAG, "didGetTextTagEventType: " + textTagEventType.name());
+
+            }
         };
 
     }
@@ -328,6 +340,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
     @Override
     protected void onNewInventoryCommands() {
         newStopInventoryCommand();
+        newSimpleStartInventoryCommand();
         newStartInventoryCommand();
     }
 
@@ -341,6 +354,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
         newControlBuzzerCommand();
         newVibratorStateCommand();
         newTagEventIntervalCommand();
+        newTextTagEventTypeCommand();
     }
 
     @Override
@@ -365,7 +379,8 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
     @Override
     protected void onShowInventoryViews() {
         mAdapter.add(mStopInventoryCommand);
-        mAdapter.add(mInventoryCommand);
+        mAdapter.add(mSimpleStartIventoryCommand);
+        mAdapter.add(mStartInventoryCommand);
     }
 
     @Override
@@ -378,6 +393,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mControlBuzzerCommand);
         mAdapter.add(mVibratorStateCommand);
         mAdapter.add(mTagEventIntervalCommand);
+        mAdapter.add(mTextTagEventTypeCommand);
     }
 
     @Override
@@ -399,18 +415,23 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mInventoryRoundIntervalCommand);
     }
 
-    private void newStartInventoryCommand() {
-        mInventoryCommand = new GeneralCommandItem("Start Inventory", null, "Start"
-                , new SpinnerParamData<>(TagPresentedType.class));
-        mInventoryCommand.setRightOnClickListener(v -> {
-            SpinnerParamData viewData = (SpinnerParamData) mInventoryCommand.getViewDataArray()[0];
-            mUhf.startInventory((TagPresentedType) viewData.getSelected());
-        });
-    }
-
     private void newStopInventoryCommand() {
         mStopInventoryCommand = new GeneralCommandItem("Stop Inventory", null, "Stop");
         mStopInventoryCommand.setRightOnClickListener(v -> mUhf.stopInventory());
+    }
+
+    private void newSimpleStartInventoryCommand() {
+        mSimpleStartIventoryCommand = new GeneralCommandItem("Start Inventory", null, "Start");
+        mSimpleStartIventoryCommand.setRightOnClickListener(view -> ((NR800) mUhf).startInventory());
+    }
+
+    private void newStartInventoryCommand() {
+        mStartInventoryCommand = new GeneralCommandItem("Start Inventory", null, "Start"
+                , new SpinnerParamData<>(TagPresentedType.class));
+        mStartInventoryCommand.setRightOnClickListener(v -> {
+            SpinnerParamData viewData = (SpinnerParamData) mStartInventoryCommand.getViewDataArray()[0];
+            mUhf.startInventory((TagPresentedType) viewData.getSelected());
+        });
     }
 
 
@@ -498,6 +519,16 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
         });
     }
 
+
+    private void newTextTagEventTypeCommand() {
+        mTextTagEventTypeCommand = new GeneralCommandItem("Get/Set Text Tag Event Type"
+                , new SpinnerParamData<>(TextTagEventType.class));
+        mTextTagEventTypeCommand.setLeftOnClickListener(view -> ((NR800) mUhf).getTextTagEventType(mTemp));
+        mTextTagEventTypeCommand.setRightOnClickListener(view -> {
+            SpinnerParamData textTagEventType = (SpinnerParamData) mTextTagEventTypeCommand.getViewDataArray()[0];
+            ((NR800) mUhf).setTextTagEventType(mTemp, (TextTagEventType) textTagEventType.getSelected());
+        });
+    }
 
     private void newReadWriteEPCCommand() {
         mReadWriteEpcCommand = new GeneralCommandItem("Read/Write EPC"
