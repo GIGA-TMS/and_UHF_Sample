@@ -1,7 +1,6 @@
 package com.gigatms.uhf.deviceControl;
 
 import android.os.Bundle;
-import android.widget.Toast;
 
 import com.gigatms.DecodedTagData;
 import com.gigatms.MU400H;
@@ -9,14 +8,13 @@ import com.gigatms.TagInformationFormat;
 import com.gigatms.UHFCallback;
 import com.gigatms.uhf.DeviceControlFragment;
 import com.gigatms.uhf.GeneralCommandItem;
-import com.gigatms.uhf.Toaster;
 import com.gigatms.uhf.paramsData.CheckboxListParamData;
 import com.gigatms.uhf.paramsData.EditTextParamData;
 import com.gigatms.uhf.paramsData.EditTextTitleParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
 import com.gigatms.uhf.paramsData.SpinnerParamData;
-import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
+import com.gigatms.parameters.ActiveMode;
 import com.gigatms.parameters.EventType;
 import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
@@ -31,9 +29,8 @@ import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
 import com.gigatms.tools.GTool;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -49,10 +46,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mStopInventoryCommand;
     private GeneralCommandItem mInventoryCommand;
     private GeneralCommandItem mInventoryExCommand;
-
-    private GeneralCommandItem mReadWriteEpcCommand;
-    private GeneralCommandItem mReadTagCommand;
-    private GeneralCommandItem mWriteTagCommand;
+    private GeneralCommandItem mInventoryActiveMode;
 
     private GeneralCommandItem mRfPowerCommand;
     private GeneralCommandItem mRfSensitivityCommand;
@@ -133,7 +127,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didGetFrequencyList(final List<Double> frequencyList) {
+            public void didGetFrequencyList(final Set<Double> frequencyList) {
                 String frequencyData = Arrays.toString(frequencyList.toArray());
                 EditTextParamData selected = (EditTextParamData) mFrequencyCommand.getViewDataArray()[0];
                 selected.setSelected(frequencyData.replace("[", "").replace("]", ""));
@@ -170,7 +164,6 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
             @Override
             public void didReadTag(MemoryBank memoryBank, int startWordAddress, byte[] readData) {
                 final String dataString = GTool.bytesToHexString(readData);
-                //TODO
                 onUpdateLog(TAG, "didReadTag:" +
                         "\n\tMemoryBank: " + memoryBank.name() +
                         "\n\tstartWordAddress: " + startWordAddress +
@@ -283,23 +276,35 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(hundredMilliSeconds);
                 mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition());
-                onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: " + hundredMilliSeconds + "*100 ms");
+                if (hundredMilliSeconds == 255 || hundredMilliSeconds == 254) {
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[Default]: Never Repeat!");
+                } else {
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: " + hundredMilliSeconds + "*100 ms");
+                }
             }
 
             @Override
-            public void didGetTagRemovedThreshold(int hundredMilliSeconds) {
-                SeekBarParamData selected1 = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
-                selected1.setSelected(hundredMilliSeconds);
+            public void didGetTagRemovedThreshold(int inventoryRound) {
+                SeekBarParamData selected = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
+                selected.setSelected(inventoryRound);
                 mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition());
-                onUpdateLog(TAG, "didGetTagRemovedThreshold: " + hundredMilliSeconds + "*100 ms");
+                if (inventoryRound == 255 || inventoryRound == 5) {
+                    onUpdateLog(TAG, "didGetTagRemovedThreshold[Default]: " + 5 + " inventory rounds.");
+                } else {
+                    onUpdateLog(TAG, "didGetTagRemovedThreshold: " + inventoryRound + " inventory rounds.");
+                }
             }
 
             @Override
             public void didGetInventoryRoundInterval(int tenMilliSeconds) {
-                SeekBarParamData selected1 = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
-                selected1.setSelected(tenMilliSeconds);
+                SeekBarParamData selected = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
+                selected.setSelected(tenMilliSeconds);
                 mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition());
-                onUpdateLog(TAG, "didGetInventoryRoundInterval: " + tenMilliSeconds + "*10 ms");
+                if (tenMilliSeconds == 0 || tenMilliSeconds == 255) {
+                    onUpdateLog(TAG, "didGetInventoryRoundInterval[Default]: " + 0 + "*10 ms");
+                } else {
+                    onUpdateLog(TAG, "didGetInventoryRoundInterval: " + tenMilliSeconds + "*10 ms");
+                }
             }
 
             @Override
@@ -309,8 +314,15 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mOutputInterfaceCommand.getPosition()));
                 onUpdateLog(TAG, "didGetOutputInterface: " + outputInterface.name());
             }
-        };
 
+            @Override
+            public void didGetInventoryActiveMode(ActiveMode activeMode) {
+                SpinnerParamData selected = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];
+                selected.setSelected(activeMode);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mInventoryActiveMode.getPosition()));
+                onUpdateLog(TAG, "didGetInventoryActiveMode: " + activeMode.name());
+            }
+        };
     }
 
     @Override
@@ -318,6 +330,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         newStopInventoryCommand();
         newStartInventoryCommand();
         newStartInventoryCommandEx();
+        newInventoryActiveModeCommand();
     }
 
     @Override
@@ -327,13 +340,6 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         newPostDataDelimiterCommand();
         newMemoryBankSelectionCommand();
         newOutputInterfaceCommand();
-    }
-
-    @Override
-    protected void onNewReadWriteTagCommands() {
-        newReadWriteEPCCommand();
-        newReadTagCommand();
-        newWriteTagCommand();
     }
 
     @Override
@@ -353,6 +359,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mStopInventoryCommand);
         mAdapter.add(mInventoryCommand);
         mAdapter.add(mInventoryExCommand);
+        mAdapter.add(mInventoryActiveMode);
     }
 
     @Override
@@ -365,13 +372,6 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
     }
 
     @Override
-    protected void onShowReadWriteTagViews() {
-        mAdapter.add(mReadWriteEpcCommand);
-        mAdapter.add(mReadTagCommand);
-        mAdapter.add(mWriteTagCommand);
-    }
-
-    @Override
     protected void onShowSettingViews() {
         mAdapter.add(mRfPowerCommand);
         mAdapter.add(mRfSensitivityCommand);
@@ -381,6 +381,11 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mTagPresentedRepeatIntervalCommand);
         mAdapter.add(mTagRemovedThresholdCommand);
         mAdapter.add(mInventoryRoundIntervalCommand);
+    }
+
+    private void newStopInventoryCommand() {
+        mStopInventoryCommand = new GeneralCommandItem("Stop Inventory", null, "Stop");
+        mStopInventoryCommand.setRightOnClickListener(v -> mUhf.stopInventory());
     }
 
     private void newStartInventoryCommandEx() {
@@ -401,9 +406,22 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         });
     }
 
-    private void newStopInventoryCommand() {
-        mStopInventoryCommand = new GeneralCommandItem("Stop Inventory", null, "Stop");
-        mStopInventoryCommand.setRightOnClickListener(v -> mUhf.stopInventory());
+    private void newInventoryActiveModeCommand() {
+        mInventoryActiveMode = new GeneralCommandItem("Inventory Active Mode", "Get", "Set", new SpinnerParamData<>(new ActiveMode[]{
+                ActiveMode.READ,
+                ActiveMode.COMMAND,
+                ActiveMode.TAG_ANALYSIS,
+                ActiveMode.CUSTOMIZED_READ,
+                ActiveMode.DEACTIVATE,
+                ActiveMode.REACTIVATE,
+                ActiveMode.DEACTIVATE_USER_BANK,
+                ActiveMode.REACTIVATE_USER_BANK,
+        }));
+        mInventoryActiveMode.setLeftOnClickListener(v -> mUhf.getInventoryActiveMode());
+        mInventoryActiveMode.setRightOnClickListener(v -> {
+            SpinnerParamData viewData = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];
+            mUhf.setInventoryActiveMode((ActiveMode) viewData.getSelected());
+        });
     }
 
     private void newEventTypeCommand() {
@@ -433,9 +451,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
     private void newPostDataDelimiterCommand() {
         mPostDataDelimiterCommand = new GeneralCommandItem("Get/Set Post Data Delimiter"
                 , new SpinnerParamData<>(PostDataDelimiter.class));
-        mPostDataDelimiterCommand.setLeftOnClickListener(v -> {
-            ((MU400H) mUhf).getPostDataDelimiter(mTemp);
-        });
+        mPostDataDelimiterCommand.setLeftOnClickListener(v -> ((MU400H) mUhf).getPostDataDelimiter(mTemp));
         mPostDataDelimiterCommand.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mPostDataDelimiterCommand.getViewDataArray()[0];
             ((MU400H) mUhf).setPostDataDelimiter(mTemp, (PostDataDelimiter) viewData.getSelected());
@@ -462,76 +478,6 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         mOutputInterfaceCommand.setRightOnClickListener(v -> {
             SpinnerParamData outputInterface = (SpinnerParamData) mOutputInterfaceCommand.getViewDataArray()[0];
             ((MU400H) mUhf).setOutputInterface(mTemp, (OutputInterface) outputInterface.getSelected());
-        });
-    }
-
-
-    private void newReadWriteEPCCommand() {
-        mReadWriteEpcCommand = new GeneralCommandItem("Read/Write EPC"
-                , new EditTextTitleParamData("Password", "00000000", "00000000")
-                , new EditTextTitleParamData("EPC", "EPC"));
-        mReadWriteEpcCommand.setLeftOnClickListener(v -> {
-            EditTextTitleParamData firstParam = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[0];
-            mUhf.readEpc(firstParam.getSelected());
-        });
-        mReadWriteEpcCommand.setRightOnClickListener(v -> {
-            try {
-                EditTextTitleParamData password = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[0];
-                EditTextTitleParamData epc = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[1];
-                mUhf.writeEpc(password.getSelected()
-                        , GTool.hexStringToByteArray(epc.getSelected()));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-    }
-
-    private void newReadTagCommand() {
-        mReadTagCommand = new GeneralCommandItem("Read Tag", null, "Read"
-                , new EditTextTitleParamData("Password", "00000000", "00000000")
-                , new EditTextTitleParamData("Selected Epc", "PC+EPC")
-                , new SpinnerTitleParamData<>(MemoryBank.class)
-                , new EditTextTitleParamData("Start Address", "Start with 0", "" + 0)
-                , new EditTextTitleParamData("Read Length", "0 means all", "" + 0)
-        );
-        mReadTagCommand.setRightOnClickListener(v -> {
-            EditTextTitleParamData password = (EditTextTitleParamData) mReadTagCommand.getViewDataArray()[0];
-            EditTextTitleParamData selectedEpc = (EditTextTitleParamData) mReadTagCommand.getViewDataArray()[1];
-            SpinnerTitleParamData memoryBand = (SpinnerTitleParamData) mReadTagCommand.getViewDataArray()[2];
-            EditTextTitleParamData startAddress = (EditTextTitleParamData) mReadTagCommand.getViewDataArray()[3];
-            EditTextTitleParamData readLength = (EditTextTitleParamData) mReadTagCommand.getViewDataArray()[4];
-            mUhf.readTag(password.getSelected()
-                    , selectedEpc.getSelected()
-                    , (MemoryBank) memoryBand.getSelected()
-                    , Integer.valueOf(startAddress.getSelected())
-                    , Integer.valueOf(readLength.getSelected()));
-        });
-    }
-
-    private void newWriteTagCommand() {
-        mWriteTagCommand = new GeneralCommandItem("Write Tag", null, "Write"
-                , new EditTextTitleParamData("Password", "00000000", "00000000")
-                , new EditTextTitleParamData("Selected Epc", "PC+EPC")
-                , new SpinnerTitleParamData<>(MemoryBank.class)
-                , new EditTextTitleParamData("Start Address", "Start from 0", "" + 0)
-                , new EditTextTitleParamData("Write Data", "Data to Write")
-        );
-        mWriteTagCommand.setRightOnClickListener(v -> {
-            EditTextTitleParamData password = (EditTextTitleParamData) mWriteTagCommand.getViewDataArray()[0];
-            EditTextTitleParamData selectedEpc = (EditTextTitleParamData) mWriteTagCommand.getViewDataArray()[1];
-            SpinnerTitleParamData memoryBand = (SpinnerTitleParamData) mWriteTagCommand.getViewDataArray()[2];
-            EditTextTitleParamData startAddress = (EditTextTitleParamData) mWriteTagCommand.getViewDataArray()[3];
-            EditTextTitleParamData writeData = (EditTextTitleParamData) mWriteTagCommand.getViewDataArray()[4];
-            try {
-                mUhf.writeTag(password.getSelected()
-                        , selectedEpc.getSelected()
-                        , (MemoryBank) memoryBand.getSelected()
-                        , Integer.valueOf(startAddress.getSelected())
-                        , GTool.hexStringToByteArray(writeData.getSelected()));
-            } catch (Exception e) {
-                e.printStackTrace();
-                Toaster.showToast(getContext(), "Please Input Right \"Write Data\".", Toast.LENGTH_LONG);
-            }
         });
     }
 
@@ -576,7 +522,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
             String[] frequencyArray = selected.trim().split(",");
             if (frequencyArray.length > 1) {
                 try {
-                    ArrayList<Double> frequencyList = new ArrayList<>();
+                    LinkedHashSet<Double> frequencyList = new LinkedHashSet<>();
                     for (String frequency : frequencyArray) {
                         if (!frequency.equals("")) {
                             frequencyList.add(Double.parseDouble(frequency));
@@ -641,5 +587,4 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
             mUhf.setRfPower(mTemp, (byte) viewData.getSelected());
         });
     }
-
 }

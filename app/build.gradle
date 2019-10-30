@@ -16,13 +16,13 @@ repositories {
 
 
 android {
-    compileSdkVersion 28
+    compileSdkVersion 29
     defaultConfig {
         applicationId "com.gigatms.uhf"
         minSdkVersion 21
-        targetSdkVersion 28
+        targetSdkVersion 29
         versionCode Integer.parseInt( new Date().format("yyyyMMdd"))
-        versionName "2.0.0.4-beta02"
+        versionName "2.0.0.4-beta03"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {

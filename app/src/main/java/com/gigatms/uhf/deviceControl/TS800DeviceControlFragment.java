@@ -1,7 +1,6 @@
 package com.gigatms.uhf.deviceControl;
 
 import android.os.Bundle;
-import android.widget.Toast;
 
 import com.gigatms.CommunicationType;
 import com.gigatms.DecodedTagData;
@@ -10,13 +9,13 @@ import com.gigatms.TagInformationFormat;
 import com.gigatms.UHFCallback;
 import com.gigatms.uhf.DeviceControlFragment;
 import com.gigatms.uhf.GeneralCommandItem;
-import com.gigatms.uhf.Toaster;
+import com.gigatms.uhf.paramsData.CheckboxListParamData;
 import com.gigatms.uhf.paramsData.EditTextParamData;
 import com.gigatms.uhf.paramsData.EditTextTitleParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
 import com.gigatms.uhf.paramsData.SpinnerParamData;
-import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
+import com.gigatms.parameters.ActiveMode;
 import com.gigatms.parameters.BuzzerAction;
 import com.gigatms.parameters.BuzzerOperationMode;
 import com.gigatms.parameters.IONumber;
@@ -24,19 +23,23 @@ import com.gigatms.parameters.IOState;
 import com.gigatms.parameters.MemoryBank;
 import com.gigatms.parameters.OutputInterface;
 import com.gigatms.parameters.RfSensitivityLevel;
+import com.gigatms.parameters.ScanMode;
 import com.gigatms.parameters.Session;
+import com.gigatms.parameters.State;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
 import com.gigatms.parameters.TriggerType;
 import com.gigatms.tools.GTool;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.gigatms.parameters.ActiveMode.COMMAND;
+import static com.gigatms.parameters.ActiveMode.READ;
 import static com.gigatms.parameters.OutputInterface.DEFAULT;
 import static com.gigatms.parameters.OutputInterface.TCP_SERVER;
 import static com.gigatms.parameters.Session.SL;
@@ -45,10 +48,7 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
 
     private GeneralCommandItem mStopInventoryCommand;
     private GeneralCommandItem mInventoryCommand;
-
-    private GeneralCommandItem mReadWriteEpcCommand;
-    private GeneralCommandItem mReadTagCommand;
-    private GeneralCommandItem mWriteTagCommand;
+    private GeneralCommandItem mInventoryActiveMode;
 
     private GeneralCommandItem mRfPowerCommand;
     private GeneralCommandItem mRfSensitivityCommand;
@@ -63,8 +63,10 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mBleDeviceNameCommand;
     private GeneralCommandItem mBuzzerOperationCommand;
     private GeneralCommandItem mControlBuzzerCommand;
-    private GeneralCommandItem mTriggerCommand;
     private GeneralCommandItem mIoStateCommand;
+    private GeneralCommandItem mTriggerCommand;
+    private GeneralCommandItem mScanModeCommand;
+    private GeneralCommandItem mCommandTrigger;
 
     private static final String TAG = TS800DeviceControlFragment.class.getSimpleName();
 
@@ -132,7 +134,7 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didGetFrequencyList(final List<Double> frequencyList) {
+            public void didGetFrequencyList(final Set<Double> frequencyList) {
                 String frequencyData = Arrays.toString(frequencyList.toArray());
                 EditTextParamData selected = (EditTextParamData) mFrequencyCommand.getViewDataArray()[0];
                 selected.setSelected(frequencyData.replace("[", "").replace("]", ""));
@@ -180,7 +182,6 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
             @Override
             public void didReadTag(MemoryBank memoryBank, int startWordAddress, byte[] readData) {
                 final String dataString = GTool.bytesToHexString(readData);
-                //TODO
                 onUpdateLog(TAG, "didReadTag:" +
                         "\n\tMemoryBank: " + memoryBank.name() +
                         "\n\tstartWordAddress: " + startWordAddress +
@@ -213,11 +214,11 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didGetTriggerType(final TriggerType triggerSource) {
-                SpinnerParamData selected1 = (SpinnerParamData) mTriggerCommand.getViewDataArray()[0];
+            public void didGetTriggerType(final Set<TriggerType> triggerSource) {
+                CheckboxListParamData selected1 = (CheckboxListParamData) mTriggerCommand.getViewDataArray()[0];
                 selected1.setSelected(triggerSource);
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTriggerCommand.getPosition()));
-                onUpdateLog(TAG, "didGetTriggerType: " + triggerSource.name());
+                onUpdateLog(TAG, "didGetTriggerType: " + Arrays.toString(triggerSource.toArray()));
             }
 
             @Override
@@ -277,23 +278,35 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(hundredMilliSeconds);
                 mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition());
-                onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: " + hundredMilliSeconds + "*100 ms");
+                if (hundredMilliSeconds == 255 || hundredMilliSeconds == 0) {
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[Default]: Immediately");
+                } else {
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[:" + hundredMilliSeconds + "*100 ms");
+                }
             }
 
             @Override
-            public void didGetTagRemovedThreshold(int hundredMilliSeconds) {
-                SeekBarParamData selected1 = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
-                selected1.setSelected(hundredMilliSeconds);
+            public void didGetTagRemovedThreshold(int inventoryRound) {
+                SeekBarParamData selected = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
+                selected.setSelected(inventoryRound);
                 mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition());
-                onUpdateLog(TAG, "didGetTagRemovedThreshold: " + hundredMilliSeconds + "*100 ms");
+                if (inventoryRound == 255 || inventoryRound == 5) {
+                    onUpdateLog(TAG, "didGetTagRemovedThreshold[Default]: " + 5 + " inventory rounds.");
+                } else {
+                    onUpdateLog(TAG, "didGetTagRemovedThreshold: " + inventoryRound + " inventory rounds.");
+                }
             }
 
             @Override
             public void didGetInventoryRoundInterval(int tenMilliSeconds) {
-                SeekBarParamData selected1 = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
-                selected1.setSelected(tenMilliSeconds);
+                SeekBarParamData selected = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
+                selected.setSelected(tenMilliSeconds);
                 mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition());
-                onUpdateLog(TAG, "didGetInventoryRoundInterval: " + tenMilliSeconds + "*10 ms");
+                if (tenMilliSeconds == 0 || tenMilliSeconds == 255) {
+                    onUpdateLog(TAG, "didGetInventoryRoundInterval[Default]: " + 0 + "*10 ms");
+                } else {
+                    onUpdateLog(TAG, "didGetInventoryRoundInterval: " + tenMilliSeconds + "*10 ms");
+                }
             }
 
             @Override
@@ -303,6 +316,30 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mOutputInterfaceCommand.getPosition()));
                 onUpdateLog(TAG, "didGetOutputInterface: " + outputInterface.name());
             }
+
+            @Override
+            public void didGetScanMode(ScanMode scanMode) {
+                SpinnerParamData selected1 = (SpinnerParamData) mScanModeCommand.getViewDataArray()[0];
+                selected1.setSelected(scanMode);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mScanModeCommand.getPosition()));
+                onUpdateLog(TAG, "didGetScanMode: " + scanMode.name());
+            }
+
+            @Override
+            public void didGetCommandTriggerState(State state) {
+                SpinnerParamData seleced = (SpinnerParamData) mCommandTrigger.getViewDataArray()[0];
+                seleced.setSelected(state);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mCommandTrigger.getPosition()));
+                onUpdateLog(TAG, "didGetCommandTriggerState: " + state.name());
+            }
+
+            @Override
+            public void didGetInventoryActiveMode(ActiveMode activeMode) {
+                SpinnerParamData seleced = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];
+                seleced.setSelected(activeMode);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mInventoryActiveMode.getPosition()));
+                onUpdateLog(TAG, "didGetInventoryActiveMode: " + activeMode.name());
+            }
         };
 
     }
@@ -311,6 +348,7 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
     protected void onNewInventoryCommands() {
         newStopInventoryCommand();
         newStartInventoryCommand();
+        newInventoryActiveModeCommand();
     }
 
     @Override
@@ -318,16 +356,11 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
         newBleDeviceNameCommand();
         newBuzzerOperationCommand();
         newControlBuzzerCommand();
-        newTS800TriggerCommand();
         newTS800IoStateCommand();
         newOutputInterfaceCommand();
-    }
-
-    @Override
-    protected void onNewReadWriteTagCommands() {
-        newReadWriteEPCCommand();
-        newReadTagCommand();
-        newWriteTagCommand();
+        newTS800TriggerCommand();
+        newScanModeCommand();
+        newCommandTrigger();
     }
 
     @Override
@@ -346,6 +379,7 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
     protected void onShowInventoryViews() {
         mAdapter.add(mStopInventoryCommand);
         mAdapter.add(mInventoryCommand);
+        mAdapter.add(mInventoryActiveMode);
     }
 
     @Override
@@ -353,18 +387,13 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
         if (mUhf.getCommunicationType().equals(CommunicationType.BLE)) {
             mAdapter.add(mBleDeviceNameCommand);
         }
+        mAdapter.add(mScanModeCommand);
+        mAdapter.add(mTriggerCommand);
+        mAdapter.add(mCommandTrigger);
         mAdapter.add(mBuzzerOperationCommand);
         mAdapter.add(mControlBuzzerCommand);
-        mAdapter.add(mTriggerCommand);
         mAdapter.add(mIoStateCommand);
         mAdapter.add(mOutputInterfaceCommand);
-    }
-
-    @Override
-    protected void onShowReadWriteTagViews() {
-        mAdapter.add(mReadWriteEpcCommand);
-        mAdapter.add(mReadTagCommand);
-        mAdapter.add(mWriteTagCommand);
     }
 
     @Override
@@ -385,11 +414,19 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
     }
 
     private void newStartInventoryCommand() {
-        mInventoryCommand = new GeneralCommandItem("Start Inventory", null, "Start"
-                , new SpinnerParamData<>(TagPresentedType.class));
+        mInventoryCommand = new GeneralCommandItem("Start Inventory", null, "Start", new SpinnerParamData<>(TagPresentedType.class));
         mInventoryCommand.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mInventoryCommand.getViewDataArray()[0];
             mUhf.startInventory((TagPresentedType) viewData.getSelected());
+        });
+    }
+
+    private void newInventoryActiveModeCommand() {
+        mInventoryActiveMode = new GeneralCommandItem("Inventory Active Mode", "Set", "Get", new SpinnerParamData<>(new ActiveMode[]{READ, COMMAND}));
+        mInventoryActiveMode.setLeftOnClickListener(v -> mUhf.getInventoryActiveMode());
+        mInventoryActiveMode.setRightOnClickListener(v -> {
+            SpinnerParamData viewData = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];
+            mUhf.setInventoryActiveMode((ActiveMode) viewData.getSelected());
         });
     }
 
@@ -408,9 +445,7 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
     private void newBuzzerOperationCommand() {
         mBuzzerOperationCommand = new GeneralCommandItem("Get/Set Buzzer Operation"
                 , new SpinnerParamData<>(new BuzzerOperationMode[]{BuzzerOperationMode.OFF, BuzzerOperationMode.REPEAT}));
-        mBuzzerOperationCommand.setLeftOnClickListener(v -> {
-            ((TS800) mUhf).getBuzzerOperationMode(mTemp);
-        });
+        mBuzzerOperationCommand.setLeftOnClickListener(v -> ((TS800) mUhf).getBuzzerOperationMode(mTemp));
         mBuzzerOperationCommand.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mBuzzerOperationCommand.getViewDataArray()[0];
             ((TS800) mUhf).setBuzzerOperationMode(mTemp, (BuzzerOperationMode) viewData.getSelected());
@@ -428,11 +463,11 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
 
     private void newTS800TriggerCommand() {
         mTriggerCommand = new GeneralCommandItem("Get/Set Trigger"
-                , new SpinnerParamData<>(TriggerType.class));
+                , new CheckboxListParamData<>(TriggerType.class));
         mTriggerCommand.setLeftOnClickListener(v -> ((TS800) mUhf).getTriggerType(mTemp));
         mTriggerCommand.setRightOnClickListener(v -> {
-            SpinnerParamData viewData = (SpinnerParamData) mTriggerCommand.getViewDataArray()[0];
-            ((TS800) mUhf).setTriggerType(mTemp, (TriggerType) viewData.getSelected());
+            CheckboxListParamData viewData = (CheckboxListParamData) mTriggerCommand.getViewDataArray()[0];
+            ((TS800) mUhf).setTriggerType(mTemp, viewData.getSelected());
         });
     }
 
@@ -466,75 +501,6 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
         });
     }
 
-    private void newReadWriteEPCCommand() {
-        mReadWriteEpcCommand = new GeneralCommandItem("Read/Write EPC"
-                , new EditTextTitleParamData("Password", "00000000", "00000000")
-                , new EditTextTitleParamData("EPC", "EPC"));
-        mReadWriteEpcCommand.setLeftOnClickListener(v -> {
-            EditTextTitleParamData firstParam = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[0];
-            mUhf.readEpc(firstParam.getSelected());
-        });
-        mReadWriteEpcCommand.setRightOnClickListener(v -> {
-            try {
-                EditTextTitleParamData password = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[0];
-                EditTextTitleParamData epc = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[1];
-                mUhf.writeEpc(password.getSelected()
-                        , GTool.hexStringToByteArray(epc.getSelected()));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-    }
-
-    private void newReadTagCommand() {
-        mReadTagCommand = new GeneralCommandItem("Read Tag", null, "Read"
-                , new EditTextTitleParamData("Password", "00000000", "00000000")
-                , new EditTextTitleParamData("Selected Epc", "PC+EPC")
-                , new SpinnerTitleParamData<>(MemoryBank.class)
-                , new EditTextTitleParamData("Start Address", "Start with 0", "" + 0)
-                , new EditTextTitleParamData("Read Length", "0 means all", "" + 0)
-        );
-        mReadTagCommand.setRightOnClickListener(v -> {
-            EditTextTitleParamData password = (EditTextTitleParamData) mReadTagCommand.getViewDataArray()[0];
-            EditTextTitleParamData selectedEpc = (EditTextTitleParamData) mReadTagCommand.getViewDataArray()[1];
-            SpinnerTitleParamData memoryBand = (SpinnerTitleParamData) mReadTagCommand.getViewDataArray()[2];
-            EditTextTitleParamData startAddress = (EditTextTitleParamData) mReadTagCommand.getViewDataArray()[3];
-            EditTextTitleParamData readLength = (EditTextTitleParamData) mReadTagCommand.getViewDataArray()[4];
-            mUhf.readTag(password.getSelected()
-                    , selectedEpc.getSelected()
-                    , (MemoryBank) memoryBand.getSelected()
-                    , Integer.valueOf(startAddress.getSelected())
-                    , Integer.valueOf(readLength.getSelected()));
-        });
-    }
-
-    private void newWriteTagCommand() {
-        mWriteTagCommand = new GeneralCommandItem("Write Tag", null, "Write"
-                , new EditTextTitleParamData("Password", "00000000", "00000000")
-                , new EditTextTitleParamData("Selected Epc", "PC+EPC")
-                , new SpinnerTitleParamData<>(MemoryBank.class)
-                , new EditTextTitleParamData("Start Address", "Start from 0", "" + 0)
-                , new EditTextTitleParamData("Write Data", "Data to Write")
-        );
-        mWriteTagCommand.setRightOnClickListener(v -> {
-            EditTextTitleParamData password = (EditTextTitleParamData) mWriteTagCommand.getViewDataArray()[0];
-            EditTextTitleParamData selectedEpc = (EditTextTitleParamData) mWriteTagCommand.getViewDataArray()[1];
-            SpinnerTitleParamData memoryBand = (SpinnerTitleParamData) mWriteTagCommand.getViewDataArray()[2];
-            EditTextTitleParamData startAddress = (EditTextTitleParamData) mWriteTagCommand.getViewDataArray()[3];
-            EditTextTitleParamData writeData = (EditTextTitleParamData) mWriteTagCommand.getViewDataArray()[4];
-            try {
-                mUhf.writeTag(password.getSelected()
-                        , selectedEpc.getSelected()
-                        , (MemoryBank) memoryBand.getSelected()
-                        , Integer.valueOf(startAddress.getSelected())
-                        , GTool.hexStringToByteArray(writeData.getSelected()));
-            } catch (Exception e) {
-                e.printStackTrace();
-                Toaster.showToast(getContext(), "Please Input Right \"Write Data\".", Toast.LENGTH_LONG);
-            }
-        });
-    }
-
     private void newInventoryRoundIntervalCommand() {
         mInventoryRoundIntervalCommand = new GeneralCommandItem("Get/Set Inventory Round Interval"
                 , new SeekBarParamData(0, 255));
@@ -565,7 +531,6 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
         });
     }
 
-
     private void newFrequencyCommand() {
         mFrequencyCommand = new GeneralCommandItem("Get/Set Frequency"
                 , new EditTextParamData("840.250, 842.000, 843.250"));
@@ -576,7 +541,7 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
             String[] frequencyArray = selected.trim().split(",");
             if (frequencyArray.length > 1) {
                 try {
-                    ArrayList<Double> frequencyList = new ArrayList<>();
+                    LinkedHashSet<Double> frequencyList = new LinkedHashSet<>();
                     for (String frequency : frequencyArray) {
                         if (!frequency.equals("")) {
                             frequencyList.add(Double.parseDouble(frequency));
@@ -642,4 +607,22 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
         });
     }
 
+    private void newScanModeCommand() {
+        mScanModeCommand = new GeneralCommandItem("Get/Set Scan Mode"
+                , new SpinnerParamData<>(ScanMode.class));
+        mScanModeCommand.setRightOnClickListener(v -> {
+            SpinnerParamData scanMode = (SpinnerParamData) mScanModeCommand.getViewDataArray()[0];
+            ((TS800) mUhf).setScanMode(mTemp, (ScanMode) scanMode.getSelected());
+        });
+        mScanModeCommand.setLeftOnClickListener(v -> ((TS800) mUhf).getScanMode(mTemp));
+    }
+
+    private void newCommandTrigger() {
+        mCommandTrigger = new GeneralCommandItem("Get/Set Command Trigger", new SpinnerParamData<>(State.class));
+        mCommandTrigger.setRightOnClickListener(v -> {
+            SpinnerParamData state = (SpinnerParamData) mCommandTrigger.getViewDataArray()[0];
+            ((TS800) mUhf).setCommandTriggerState((State) state.getSelected());
+        });
+        mCommandTrigger.setLeftOnClickListener(v -> ((TS800) mUhf).getCommandTriggerState());
+    }
 }

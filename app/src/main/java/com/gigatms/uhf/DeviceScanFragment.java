@@ -24,12 +24,13 @@ import com.gigatms.BaseScanner;
 import com.gigatms.CommunicationType;
 import com.gigatms.UHF.UhfClassVersion;
 import com.gigatms.UHFScanner;
-import com.gigatms.tools.GLog;
 import com.gigatms.uhf.deviceControl.MU400HDeviceControlFragment;
 import com.gigatms.uhf.deviceControl.NR800DeviceControlFragment;
+import com.gigatms.uhf.deviceControl.PWD100DeviceControlFragment;
 import com.gigatms.uhf.deviceControl.TS100DeviceControlFragment;
 import com.gigatms.uhf.deviceControl.TS800DeviceControlFragment;
 import com.gigatms.uhf.deviceControl.UR0250DeviceControlFragment;
+import com.gigatms.tools.GLog;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -39,6 +40,7 @@ import static com.gigatms.CommunicationType.UDP;
 import static com.gigatms.CommunicationType.USB;
 import static com.gigatms.UHF.UhfClassVersion.MU400H;
 import static com.gigatms.UHF.UhfClassVersion.NR800;
+import static com.gigatms.UHF.UhfClassVersion.PWD100;
 import static com.gigatms.UHF.UhfClassVersion.TS100;
 import static com.gigatms.UHF.UhfClassVersion.TS800;
 import static com.gigatms.UHF.UhfClassVersion.UR0250;
@@ -71,6 +73,8 @@ public class DeviceScanFragment extends BaseScanFragment {
             replaceFragment(UR0250DeviceControlFragment.newFragment(baseDevice.getDeviceID()));
         } else if (baseDevice instanceof com.gigatms.NR800) {
             replaceFragment(NR800DeviceControlFragment.newFragment(baseDevice.getDeviceID()));
+        } else if (baseDevice instanceof com.gigatms.PWD100) {
+            replaceFragment(PWD100DeviceControlFragment.newFragment(baseDevice.getDeviceID()));
         }
     }
 
@@ -83,8 +87,7 @@ public class DeviceScanFragment extends BaseScanFragment {
 
     @Override
     public void hookAddSpnProducts() {
-        addSpnProducts(new String[]{TS100.name(), TS800.name(), MU400H.name(), UR0250.name(), NR800.name()});
-//        addSpnProducts(new String[]{TS100.name(), TS800.name(), MU400H.name(), UR0250.name(), NR800.name(), PWD100.name()});
+        addSpnProducts(new String[]{TS100.name(), TS800.name(), MU400H.name(), UR0250.name(), NR800.name(), PWD100.name()});
         mSpnProduct.setSelection(0);
         ((UHFScanner) mBaseScanner).setClassVersion(UhfClassVersion.TS100);
     }

@@ -15,6 +15,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -25,16 +26,31 @@ import com.gigatms.CommunicationCallback;
 import com.gigatms.CommunicationType;
 import com.gigatms.ConnectionState;
 import com.gigatms.DeviceDebugCallback;
+import com.gigatms.PWD100;
 import com.gigatms.TS100;
 import com.gigatms.TS800;
 import com.gigatms.UHFCallback;
 import com.gigatms.UHFDevice;
 import com.gigatms.UR0250;
+import com.gigatms.uhf.paramsData.EditTextTitleParamData;
+import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
+import com.gigatms.parameters.LockAction;
+import com.gigatms.parameters.MemoryBank;
 import com.gigatms.tools.GLog;
+import com.gigatms.tools.GTool;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
+
+import static com.gigatms.parameters.MemoryBank.ACCESS_PASSWORD;
+import static com.gigatms.parameters.MemoryBank.EPC_BANK;
+import static com.gigatms.parameters.MemoryBank.KILL_PASSWORD;
+import static com.gigatms.parameters.MemoryBank.RESERVE_BANK;
+import static com.gigatms.parameters.MemoryBank.TID_BANK;
+import static com.gigatms.parameters.MemoryBank.USER_BANK;
 
 public abstract class DeviceControlFragment extends DebugFragment implements CommunicationCallback {
     public static final String MAC_ADDRESS = "devMAcAddress";
@@ -53,6 +69,17 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
     protected TextView mTvBleFirmwareValue;
     protected RecyclerView mRecyclerView;
     protected CommandRecyclerViewAdapter mAdapter;
+
+    protected GeneralCommandItem mReadWriteEpcCommand;
+    protected GeneralCommandItem mWriteSelectedEpcCommand;
+    protected GeneralCommandItem mReadTagWithSelectedEpcCommand;
+    protected GeneralCommandItem mReadTagCommand;
+    protected GeneralCommandItem mWriteTagWithSelectedEpcCommand;
+    protected GeneralCommandItem mWriteTagCommand;
+    protected GeneralCommandItem mLockTagWithPassword;
+    protected GeneralCommandItem mLockTagWithoutPassword;
+    protected GeneralCommandItem mKillTagWithPassword;
+    protected GeneralCommandItem mKillTagWithoutPassword;
 
     private boolean mBackPressing = false;
 
@@ -88,7 +115,7 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
         }
         setDeviceInformation();
         setConnectionButton();
-        mUhf.getRomVersion();
+        mUhf.getFirmwareVersion();
         if (mUhf.getCommunicationType().equals(CommunicationType.BLE)) {
             if (mUhf instanceof TS800) {
                 ((TS800) mUhf).getBleRomVersion();
@@ -153,7 +180,18 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
 
     protected abstract void onNewAdvanceCommands();
 
-    protected abstract void onNewReadWriteTagCommands();
+    private void onNewReadWriteTagCommands() {
+        newReadWriteEPCCommand();
+        newWriteSelectedEpcCommand();
+        newReadTagSelectedEpcCommand();
+        newReadTagCommand();
+        newWriteTagSelectedEpcCommand();
+        newWriteTagCommand();
+        newLockTagWithPassword();
+        newLockTagWithoutPassword();
+        newKillTagWithPassword();
+        newKillTagWithoutPassword();
+    }
 
     protected abstract void onNewSettingCommands();
 
@@ -161,14 +199,25 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
 
     protected abstract void onShowAdvanceViews();
 
-    protected abstract void onShowReadWriteTagViews();
+    private void onShowReadWriteTagViews() {
+        mAdapter.add(mReadWriteEpcCommand);
+        mAdapter.add(mWriteSelectedEpcCommand);
+        mAdapter.add(mReadTagWithSelectedEpcCommand);
+        mAdapter.add(mReadTagCommand);
+        mAdapter.add(mWriteTagWithSelectedEpcCommand);
+        mAdapter.add(mWriteTagCommand);
+        mAdapter.add(mLockTagWithPassword);
+        mAdapter.add(mLockTagWithoutPassword);
+        mAdapter.add(mKillTagWithPassword);
+        mAdapter.add(mKillTagWithoutPassword);
+    }
 
     protected abstract void onShowSettingViews();
 
     private void setDeviceInformation() {
         updateConnectionViews(mUhf.getConnectionState());
         mTvMacAddress.setText(mUhf.getDeviceID());
-        if (mUhf.getCommunicationType() != CommunicationType.BLE) {
+        if (mUhf.getCommunicationType() != CommunicationType.BLE || mUhf instanceof PWD100) {
             mTvBleFirmware.setVisibility(View.GONE);
             mTvBleFirmwareValue.setVisibility(View.GONE);
         } else {
@@ -181,7 +230,7 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
         assert getArguments() != null;
         String macAddress = getArguments().getString(MAC_ADDRESS);
         mUhf = (UHFDevice) ConnectedDevices.getInstance().get(macAddress);
-        GLog.v(TAG, mUhf.toString());
+        GLog.v(TAG, mUhf.getDeviceName());
         mUhf.setDeviceDebugCallback(mDeviceDebugCallback);
     }
 
@@ -200,10 +249,191 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
         mBtnConnect = view.findViewById(R.id.btn_connect);
     }
 
+    private void newReadWriteEPCCommand() {
+        mReadWriteEpcCommand = new GeneralCommandItem("Read/Write EPC"
+                , new EditTextTitleParamData("Password", "00000000", "00000000")
+                , new EditTextTitleParamData("EPC", "EPC"));
+        mReadWriteEpcCommand.setLeftOnClickListener(v -> {
+            EditTextTitleParamData firstParam = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[0];
+            mUhf.readEpc(firstParam.getSelected());
+        });
+        mReadWriteEpcCommand.setRightOnClickListener(v -> {
+            try {
+                EditTextTitleParamData password = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[0];
+                EditTextTitleParamData epc = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[1];
+                mUhf.writeEpc(password.getSelected(), GTool.hexStringToByteArray(epc.getSelected()));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    private void newWriteSelectedEpcCommand() {
+        mWriteSelectedEpcCommand = new GeneralCommandItem("Write EPC", null, "Write"
+                , new EditTextTitleParamData("Password", "00000000", "00000000")
+                , new EditTextTitleParamData("Selected EPC", "PC+EPC")
+                , new EditTextTitleParamData("EPC to Write", "EPC"));
+        mWriteSelectedEpcCommand.setRightOnClickListener(v -> {
+            try {
+                EditTextTitleParamData password = (EditTextTitleParamData) mWriteSelectedEpcCommand.getViewDataArray()[0];
+                EditTextTitleParamData selectedEpc = (EditTextTitleParamData) mWriteSelectedEpcCommand.getViewDataArray()[1];
+                EditTextTitleParamData writeData = (EditTextTitleParamData) mWriteSelectedEpcCommand.getViewDataArray()[2];
+                mUhf.writeEpc(password.getSelected(), selectedEpc.getSelected(), GTool.hexStringToByteArray(writeData.getSelected()));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+        });
+    }
+
+    private void newReadTagSelectedEpcCommand() {
+        mReadTagWithSelectedEpcCommand = new GeneralCommandItem("Read Tag", null, "Read"
+                , new EditTextTitleParamData("Password", "00000000", "00000000")
+                , new EditTextTitleParamData("Selected Epc", "PC+EPC")
+                , new SpinnerTitleParamData<>(new MemoryBank[]{RESERVE_BANK, EPC_BANK, TID_BANK, USER_BANK})
+                , new EditTextTitleParamData("Start Address", "Start with 0", "" + 0)
+                , new EditTextTitleParamData("Read Length", "0 means all", "" + 0)
+        );
+        mReadTagWithSelectedEpcCommand.setRightOnClickListener(v -> {
+            EditTextTitleParamData password = (EditTextTitleParamData) mReadTagWithSelectedEpcCommand.getViewDataArray()[0];
+            EditTextTitleParamData selectedEpc = (EditTextTitleParamData) mReadTagWithSelectedEpcCommand.getViewDataArray()[1];
+            SpinnerTitleParamData memoryBand = (SpinnerTitleParamData) mReadTagWithSelectedEpcCommand.getViewDataArray()[2];
+            EditTextTitleParamData startAddress = (EditTextTitleParamData) mReadTagWithSelectedEpcCommand.getViewDataArray()[3];
+            EditTextTitleParamData readLength = (EditTextTitleParamData) mReadTagWithSelectedEpcCommand.getViewDataArray()[4];
+            mUhf.readTag(password.getSelected()
+                    , selectedEpc.getSelected()
+                    , (MemoryBank) memoryBand.getSelected()
+                    , Integer.valueOf(startAddress.getSelected())
+                    , Integer.valueOf(readLength.getSelected()));
+        });
+    }
+
+    private void newReadTagCommand() {
+        mReadTagCommand = new GeneralCommandItem("Read Tag", null, "Read"
+                , new EditTextTitleParamData("Password", "00000000", "00000000")
+                , new SpinnerTitleParamData<>(new MemoryBank[]{RESERVE_BANK, EPC_BANK, TID_BANK, USER_BANK})
+                , new EditTextTitleParamData("Start Address", "Start with 0", "" + 0)
+                , new EditTextTitleParamData("Read Length", "0 means all", "" + 0)
+        );
+        mReadTagCommand.setRightOnClickListener(v -> {
+            EditTextTitleParamData password = (EditTextTitleParamData) mReadTagCommand.getViewDataArray()[0];
+            SpinnerTitleParamData memoryBand = (SpinnerTitleParamData) mReadTagCommand.getViewDataArray()[1];
+            EditTextTitleParamData startAddress = (EditTextTitleParamData) mReadTagCommand.getViewDataArray()[2];
+            EditTextTitleParamData readLength = (EditTextTitleParamData) mReadTagCommand.getViewDataArray()[3];
+            mUhf.readTag(password.getSelected()
+                    , (MemoryBank) memoryBand.getSelected()
+                    , Integer.valueOf(startAddress.getSelected())
+                    , Integer.valueOf(readLength.getSelected()));
+        });
+    }
+
+    private void newWriteTagSelectedEpcCommand() {
+        mWriteTagWithSelectedEpcCommand = new GeneralCommandItem("Write Tag", null, "Write"
+                , new EditTextTitleParamData("Password", "00000000", "00000000")
+                , new EditTextTitleParamData("Selected Epc", "PC+EPC")
+                , new SpinnerTitleParamData<>(new MemoryBank[]{RESERVE_BANK, EPC_BANK, TID_BANK, USER_BANK})
+                , new EditTextTitleParamData("Start Address", "Start from 0", "" + 0)
+                , new EditTextTitleParamData("Write Data", "Data to Write")
+        );
+        mWriteTagWithSelectedEpcCommand.setRightOnClickListener(v -> {
+            EditTextTitleParamData password = (EditTextTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[0];
+            EditTextTitleParamData selectedEpc = (EditTextTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[1];
+            SpinnerTitleParamData memoryBand = (SpinnerTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[2];
+            EditTextTitleParamData startAddress = (EditTextTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[3];
+            EditTextTitleParamData writeData = (EditTextTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[4];
+            try {
+                mUhf.writeTag(password.getSelected()
+                        , selectedEpc.getSelected()
+                        , (MemoryBank) memoryBand.getSelected()
+                        , Integer.valueOf(startAddress.getSelected())
+                        , GTool.hexStringToByteArray(writeData.getSelected()));
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toaster.showToast(getContext(), "Please Input Right \"Write Data\".", Toast.LENGTH_LONG);
+            }
+        });
+    }
+
+    private void newWriteTagCommand() {
+        mWriteTagCommand = new GeneralCommandItem("Write Tag", null, "Write"
+                , new EditTextTitleParamData("Password", "00000000", "00000000")
+                , new SpinnerTitleParamData<>(new MemoryBank[]{RESERVE_BANK, EPC_BANK, TID_BANK, USER_BANK})
+                , new EditTextTitleParamData("Start Address", "Start from 0", "" + 0)
+                , new EditTextTitleParamData("Write Data", "Data to Write")
+        );
+        mWriteTagCommand.setRightOnClickListener(v -> {
+            EditTextTitleParamData password = (EditTextTitleParamData) mWriteTagCommand.getViewDataArray()[0];
+            SpinnerTitleParamData memoryBand = (SpinnerTitleParamData) mWriteTagCommand.getViewDataArray()[1];
+            EditTextTitleParamData startAddress = (EditTextTitleParamData) mWriteTagCommand.getViewDataArray()[2];
+            EditTextTitleParamData writeData = (EditTextTitleParamData) mWriteTagCommand.getViewDataArray()[3];
+            try {
+                mUhf.writeTag(password.getSelected()
+                        , (MemoryBank) memoryBand.getSelected()
+                        , Integer.valueOf(startAddress.getSelected())
+                        , GTool.hexStringToByteArray(writeData.getSelected()));
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toaster.showToast(getContext(), "Please Input Right \"Write Data\".", Toast.LENGTH_LONG);
+            }
+        });
+    }
+
+    private void newLockTagWithPassword() {
+        mLockTagWithPassword = new GeneralCommandItem("Lock Tag", null, "LOCK"
+                , new EditTextTitleParamData("Password", "00000000", "00000000")
+                , new SpinnerTitleParamData<>(new MemoryBank[]{EPC_BANK, TID_BANK, USER_BANK, KILL_PASSWORD, ACCESS_PASSWORD})
+                , new SpinnerTitleParamData<>(LockAction.class)
+        );
+        mLockTagWithPassword.setRightOnClickListener(v -> {
+            EditTextTitleParamData password = (EditTextTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[0];
+            SpinnerTitleParamData memoryBank = (SpinnerTitleParamData) mLockTagWithPassword.getViewDataArray()[1];
+            SpinnerTitleParamData lockAction = (SpinnerTitleParamData) mLockTagWithPassword.getViewDataArray()[2];
+            Map<MemoryBank, LockAction> lockInfos = new HashMap<>();
+            lockInfos.put((MemoryBank) memoryBank.getSelected(), (LockAction) lockAction.getSelected());
+            mUhf.lockTag(password.getSelected(), lockInfos);
+        });
+    }
+
+    private void newLockTagWithoutPassword() {
+        mLockTagWithoutPassword = new GeneralCommandItem("Lock Tag", null, "LOCK"
+                , new SpinnerTitleParamData<>(new MemoryBank[]{EPC_BANK, TID_BANK, USER_BANK, KILL_PASSWORD, ACCESS_PASSWORD})
+                , new SpinnerTitleParamData<>(LockAction.class)
+        );
+        mLockTagWithoutPassword.setRightOnClickListener(v -> {
+            SpinnerTitleParamData memoryBank = (SpinnerTitleParamData) mLockTagWithoutPassword.getViewDataArray()[0];
+            SpinnerTitleParamData lockAction = (SpinnerTitleParamData) mLockTagWithoutPassword.getViewDataArray()[1];
+            Map<MemoryBank, LockAction> lockInfos = new HashMap<>();
+            lockInfos.put((MemoryBank) memoryBank.getSelected(), (LockAction) lockAction.getSelected());
+            mUhf.lockTag(lockInfos);
+        });
+    }
+
+    private void newKillTagWithPassword() {
+        mKillTagWithPassword = new GeneralCommandItem("Kill Tag", null, "Kill"
+                , new EditTextTitleParamData("Access Password", "00000000", "00000000")
+                , new EditTextTitleParamData("Kill Password", "00000000", "00000000")
+        );
+        mKillTagWithPassword.setRightOnClickListener(v -> {
+            EditTextTitleParamData accessPassword = (EditTextTitleParamData) mKillTagWithPassword.getViewDataArray()[0];
+            EditTextTitleParamData killPassword = (EditTextTitleParamData) mKillTagWithPassword.getViewDataArray()[1];
+            mUhf.killTag(accessPassword.getSelected(), killPassword.getSelected());
+        });
+    }
+
+    private void newKillTagWithoutPassword() {
+        mKillTagWithoutPassword = new GeneralCommandItem("Kill Tag", null, "Kill"
+                , new EditTextTitleParamData("Kill Password", "00000000", "00000000")
+        );
+        mKillTagWithoutPassword.setRightOnClickListener(v -> {
+            EditTextTitleParamData killPassword = (EditTextTitleParamData) mKillTagWithoutPassword.getViewDataArray()[0];
+            mUhf.killTag(killPassword.getSelected());
+        });
+    }
 
     @Override
     public void didUpdateConnection(final ConnectionState connectState, CommunicationType type) {
-        GLog.v(TAG, "Connected Device: " + Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
+        GLog.v(TAG, "Connected Device: "
+                + Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
         if (getActivity() != null) {
             getActivity().runOnUiThread(() -> updateConnectionViews(connectState));
         }
@@ -245,7 +475,8 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
                 updateConnectionViews(mUhf.getConnectionState());
             });
         }
-        onUpdateDebugLog(TAG, GLog.v(TAG, "Connection Timeout: " + mUhf.getDeviceID() + ": " + mUhf.getConnectionState().name()));
+        onUpdateDebugLog(TAG, GLog.v(TAG, "Connection Timeout: "
+                + mUhf.getDeviceID() + ": " + mUhf.getConnectionState().name()));
     }
 
     private DeviceDebugCallback mDeviceDebugCallback = new DeviceDebugCallback() {
