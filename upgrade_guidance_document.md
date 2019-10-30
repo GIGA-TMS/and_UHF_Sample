@@ -220,7 +220,6 @@ Two constructors of BaseDevice as below are deleted.
 Please use TS800, TS100 or UR0250 classes while trying to new a UHFDevice.
 
 --------
---------
 # Upgrade UHF SDK from 2.0.0.1 to 2.0.0.2
 
 ## BaseDevice 
@@ -237,6 +236,79 @@ Please call `getDeviceID` method to get BLE Mac Address while connected with rem
 Please call `getDeviceID` method to get Ip while connected with remote device through TCP(Wi-Fi).
 
 It is not able to get the macAddres of remote device while connected through TCP(Wi-Fi)
+
+--------
+# Upgrade UHF SDK from 2.0.0.2 to 2.0.0.3
+
+## Get and Set BLE Device Name
+
+The method of get and set BLE device name is now not in UHFDevice. Please set or get BLE device name as below.
+
+```java
+getBleDeviceName of TS800, TS100, UR0250
+setBleDeviceName of TS800, TS100, UR0250
+```
+
+## Get BLE ROM Version
+
+The method of get and set BLE device name is now not in UHFDevice. Please set or get BLE ROM version as below.
+
+```java
+getBleRomVersion of TS800, TS100, UR0250
+```
+
+## UHFDevice
+
+The methods below are refactor.
+
+```java
+setTagRemovedEventThreshold -> setTagRemovedThreshold
+getTagRemovedEventThreshold -> getTagRemovedThreshold
+setTagPresentedEventThreshold -> setTagPresentedRepeatInterval
+getTagPresentedEventThreshold -> getTagPresentedRepeatInterval
+```
+
+## UHFCallback
+
+The methods below are refactor.
+```java
+didGetTagPresentedEventThreshold -> didGetTagPresentedRepeatInterval
+didGetTagRemovedEventThreshold -> didGetTagRemovedThreshold
+```
+--------
+# Upgrade UHF SDK from 2.0.0.6 to 2.0.0.7
+
+## UHFDevice
+
+The methods below are refactor.
+
+```java
+
+setFrequency(final boolean temporary, final ArrayList<Double> frequencyList) -> setFrequency(final boolean temporary, final Set<Double> frequencyList)
+
+getRomVersion() -> getFirmwareVersion()
+```
+
+## TS800, UR0250
+
+The methods below are refactor.
+
+```java
+setTriggerType(boolean temporary, TriggerType triggerType) ->  setTriggerType(boolean temporary, Set<TriggerType> triggerType)
+```
+
+
+## UHFCallback
+
+The methods below are refactor.
+```java
+didGetFrequencyList(List<Double> frequencyList) -> didGetFrequencyList(Set<Double> frequencyList) 
+didGetTriggerType(Set<TriggerType> triggerSources) -> didGetTriggerType(TriggerType triggerSource) 
+```
+
+## Device Supported Trigger 
+
+Please read readme.md document to implement device with trigger.
 
 Support
 -------

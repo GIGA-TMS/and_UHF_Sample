@@ -7,10 +7,10 @@ The GIGA-TMS UHF SDK sample shows a list of available devices and provides an in
 
 Pre-requisites
 --------------
-- Android version 5.0~9.0
-- Android API 21~28
-- Android IDE 3.4.2
-- Android Support Repository
+- Android version 5.0~10.0
+- Android API 21~29
+- Android IDE 3.5.1
+- Androidx
 
 
 Getting Started
@@ -218,6 +218,26 @@ After operating TS800, a method of UHFCallback function will called.
 Method `didGetRfPower` of UHFCallback will called if this operation is success.
 
 Method `didGeneralError("GET_RF_POWER",errorMessage)` of UHFCallback will called if this operation is failed.
+
+### Device with trigger
+
+`ScanMode` is an important setting of devices which supported trigger.
+
+If user wants to scan while the Active mode of device isn't `COMMAND_MODE`, please set `ScanMode` to ALWAYS_SCAN.
+
+```java
+ts800.setScanMode(ALWAYS_SCAN);
+```
+
+If user wants to scan while the device is trigger by sensor, button or even command while the ACtive mode of device isn't `COMMAND_MODE`, please set `ScanMode` to `TRIGGER_A_LEVEL_CONTROL`
+
+```java
+ts800.setScanMode(TRIGGER_A_LEVEL_CONTROL);
+```
+
+And then, the device would scan tag while the `ActiveMode` isn't `COMMAND_MODE` and is triggered. 
+
+Please call `setCommandTriggerState(ON)` to trigger device through Command.
 
 #### Important
 
