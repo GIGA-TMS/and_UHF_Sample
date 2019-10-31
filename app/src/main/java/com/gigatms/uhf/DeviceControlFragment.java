@@ -385,7 +385,7 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
                 , new SpinnerTitleParamData<>(LockAction.class)
         );
         mLockTagWithPassword.setRightOnClickListener(v -> {
-            EditTextTitleParamData password = (EditTextTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[0];
+            EditTextTitleParamData password = (EditTextTitleParamData) mLockTagWithPassword.getViewDataArray()[0];
             SpinnerTitleParamData memoryBank = (SpinnerTitleParamData) mLockTagWithPassword.getViewDataArray()[1];
             SpinnerTitleParamData lockAction = (SpinnerTitleParamData) mLockTagWithPassword.getViewDataArray()[2];
             Map<MemoryBank, LockAction> lockInfos = new HashMap<>();

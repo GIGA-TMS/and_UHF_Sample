@@ -22,7 +22,7 @@ android {
         minSdkVersion 21
         targetSdkVersion 29
         versionCode Integer.parseInt( new Date().format("yyyyMMdd"))
-        versionName "2.0.0.4-beta03"
+        versionName "2.0.0.4-beta04"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
