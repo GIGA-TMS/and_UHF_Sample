@@ -7,14 +7,6 @@ import com.gigatms.DecodedTagData;
 import com.gigatms.TagInformationFormat;
 import com.gigatms.UHFCallback;
 import com.gigatms.UR0250;
-import com.gigatms.uhf.DeviceControlFragment;
-import com.gigatms.uhf.GeneralCommandItem;
-import com.gigatms.uhf.paramsData.CheckboxListParamData;
-import com.gigatms.uhf.paramsData.EditTextParamData;
-import com.gigatms.uhf.paramsData.EditTextTitleParamData;
-import com.gigatms.uhf.paramsData.SeekBarParamData;
-import com.gigatms.uhf.paramsData.SpinnerParamData;
-import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
 import com.gigatms.parameters.ActiveMode;
 import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
@@ -27,6 +19,14 @@ import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
 import com.gigatms.parameters.TriggerType;
 import com.gigatms.tools.GTool;
+import com.gigatms.uhf.DeviceControlFragment;
+import com.gigatms.uhf.GeneralCommandItem;
+import com.gigatms.uhf.paramsData.CheckboxListParamData;
+import com.gigatms.uhf.paramsData.EditTextParamData;
+import com.gigatms.uhf.paramsData.EditTextTitleParamData;
+import com.gigatms.uhf.paramsData.SeekBarParamData;
+import com.gigatms.uhf.paramsData.SpinnerParamData;
+import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
 
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -383,7 +383,7 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
     }
 
     private void newInventoryActiveModeCommand() {
-        mInventoryActiveMode = new GeneralCommandItem("Inventory Active Mode", "Set", "Get", new SpinnerParamData<>(new ActiveMode[]{READ, COMMAND}));
+        mInventoryActiveMode = new GeneralCommandItem("Inventory Active Mode", "Get", "Set", new SpinnerParamData<>(new ActiveMode[]{READ, COMMAND}));
         mInventoryActiveMode.setLeftOnClickListener(v -> mUhf.getInventoryActiveMode());
         mInventoryActiveMode.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];

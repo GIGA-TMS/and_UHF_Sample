@@ -401,7 +401,7 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
     }
 
     private void newInventoryActiveModeCommand() {
-        mInventoryActiveMode = new GeneralCommandItem("Inventory Active Mode", "Set", "Get", new SpinnerParamData<>(new ActiveMode[]{READ, COMMAND}));
+        mInventoryActiveMode = new GeneralCommandItem("Inventory Active Mode", "Get", "Set", new SpinnerParamData<>(new ActiveMode[]{READ, COMMAND}));
         mInventoryActiveMode.setLeftOnClickListener(v -> mUhf.getInventoryActiveMode());
         mInventoryActiveMode.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];

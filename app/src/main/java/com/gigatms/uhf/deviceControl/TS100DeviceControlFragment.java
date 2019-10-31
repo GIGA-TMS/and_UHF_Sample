@@ -445,7 +445,7 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
     }
 
     private void newInventoryActiveModeCommand() {
-        mInventoryActiveMode = new GeneralCommandItem("Inventory Active Mode", "Set", "Get", new SpinnerParamData<>(ActiveMode.class));
+        mInventoryActiveMode = new GeneralCommandItem("Inventory Active Mode", "Get", "Set", new SpinnerParamData<>(ActiveMode.class));
         mInventoryActiveMode.setLeftOnClickListener(v -> mUhf.getInventoryActiveMode());
         mInventoryActiveMode.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];
