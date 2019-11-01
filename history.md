@@ -1,8 +1,9 @@
-# 2.0.0.7
-## Refactor
+# SDK History
+## 2.0.0.7 (2019/10/30)
+### Refactor
 #### UHFDevice
 * getRomVersion -> getFirmwareVersion 
-## Add
+### Add
 #### Product Supported Trigger Feature
 * setScanMode
 * getScanMode
@@ -15,25 +16,25 @@
 * setInventoryActiveMode
 * lockTag
 * killTag
-## Remove
+### Remove
 #### Product Supported Trigger Feature
 * trigger init in initializeSetting function
 
-# 2.0.0.6
-## Add
-#### Test and ASCII Adapter
+## 2.0.0.6 (2019/10/07)
+### Add
+#### Text and ASCII Adapter
 
-# 2.0.0.5
-## Add
+## 2.0.0.5 (2019/10/05)
+### Add
 #### NR800
 * setTextTagEventType
 * getTextTagEventType
-# 2.0.0.4
-## Add
+## 2.0.0.4 (2019/10/05)
+### Add
 * Gradle: Proguard 
 
-# 2.0.0.3
-## Refactor
+## 2.0.0.3 (2019/10/05)
+### Refactor
 #### BLE relative method
 * getBleDeviceName of UHFDevice -> getBleDeviceName of UR0250, TS800, TS100
 * setBleDeviceName of UHFDevice -> getBleDeviceName of UR0250, TS800, TS100
@@ -44,7 +45,7 @@
 * setTagPresentedEventThreshold -> setTagPresentedRepeatInterval
 * getTagPresentedEventThreshold -> getTagPresentedRepeatInterval
 
-## Add
+### Add
 #### Supported device
 * NR800, PWD100
 #### NR800
@@ -66,7 +67,7 @@
 * newSearchingTagCondition
 * appendSearchingTagCondition
 
-# 2.0.0.2
+## 2.0.0.2 (2019/09/20)
 ### Refactor
 #### Common Function:
 * getDeviceMacAddr and getDeviceIp -> getDeviceID
@@ -79,7 +80,7 @@
 
 
 
-## Add
+### Add
 #### Common Function:
 * setTagRemovedEventThreshold
 * getTagRemovedEventThreshold
@@ -97,7 +98,7 @@
 #### TS100 Specific Function
 * getFilter
 
-# 2.0.0.1
+## 2.0.0.1 (2019/07/30)
 
 #### Supported Product:
 * TS800
@@ -156,3 +157,20 @@
 * getTriggerType
 * getIOState
 * setIOState
+
+--------------
+
+# Sample Code History
+* Refactor UI by Product
+## 2.0.0.3-beta01 (2019/10/05)
+* SDK 2.0.0.4
+* Migrate to androidX
+## 2.0.0.2 (2019/9/20)
+* SDK v2.0.0.2
+* Refactor Data of View Component: ViewCommand to ViewParamData
+* Add Sub class of ViewParamData  
+## 2.0.0.1 (2019/7/31)
+* Refactor View Component for every Function of Device
+* SDK v2.0.0.1
+## 2.0.0.0 (2019/07/26)
+* SDK v2.0.0.0

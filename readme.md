@@ -11,6 +11,7 @@ Pre-requisites
 - Android API 21~29
 - Android IDE 3.5.1
 - Androidx
+- Java 8
 
 
 Getting Started
@@ -44,7 +45,7 @@ This tutorials will give you straight-and-simple 1-2-3 style operations about th
 
 This article don't involve too much details. If you need comprehensive understanding, please read the complete manual topic, and not just the tutorial.
 
-TS800, TS100, MU400H and UR0250 are used in the similar way. The tutorial use TS800 as a example.
+TS800, TS100, MU400H, NR800, PWD100 and UR0250 are used in the similar way. The tutorial use TS800 as a example.
 
 ### Use UHFScanner to scan TS800 reader
 
