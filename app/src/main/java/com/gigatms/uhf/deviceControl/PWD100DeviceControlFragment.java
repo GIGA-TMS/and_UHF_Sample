@@ -63,8 +63,10 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mTagRemovedThresholdCommand;
     private GeneralCommandItem mTagPresentedRepeatIntervalCommand;
     private GeneralCommandItem mInventoryRoundIntervalCommand;
+    private GeneralCommandItem mGetFwVersion;
 
     private GeneralCommandItem mSsidPasswordCommand;
+    private GeneralCommandItem mSsidPasswordIpCommand;
     private GeneralCommandItem mInventoryOptionCommand;
     private GeneralCommandItem mNewSearchingTagConditionCommand;
     private GeneralCommandItem mAppendSearchingTagConditionCommand;
@@ -262,8 +264,10 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(hundredMilliSeconds);
                 mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition());
-                if (hundredMilliSeconds == 255 || hundredMilliSeconds == 0) {
-                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[Default]: Immediately");
+                if (hundredMilliSeconds == 254) {
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Never");
+                } else if (hundredMilliSeconds == 0) {
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Immediately");
                 } else {
                     onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[:" + hundredMilliSeconds + "*100 ms");
                 }
@@ -274,8 +278,8 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
                 selected.setSelected(inventoryRound);
                 mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition());
-                if (inventoryRound == 255 || inventoryRound == 5) {
-                    onUpdateLog(TAG, "didGetTagRemovedThreshold[Default]: " + 5 + " inventory rounds.");
+                if (inventoryRound == 0) {
+                    onUpdateLog(TAG, "didGetTagRemovedThreshold: Immediately");
                 } else {
                     onUpdateLog(TAG, "didGetTagRemovedThreshold: " + inventoryRound + " inventory rounds.");
                 }
@@ -286,8 +290,8 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(tenMilliSeconds);
                 mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition());
-                if (tenMilliSeconds == 0 || tenMilliSeconds == 255) {
-                    onUpdateLog(TAG, "didGetInventoryRoundInterval[Default]: " + 0 + "*10 ms");
+                if (tenMilliSeconds == 0) {
+                    onUpdateLog(TAG, "didGetInventoryRoundInterval: Immediately");
                 } else {
                     onUpdateLog(TAG, "didGetInventoryRoundInterval: " + tenMilliSeconds + "*10 ms");
                 }
@@ -339,10 +343,11 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
         newCommandTrigger();
         newPWD100ScanModeCommand();
         newPWD100TriggerCommand();
-        newPWD100SsidPasswordCommand();
         newPWD100InventoryOption();
         newPWD100NewSearchingTagCondition();
         newPWD100AppendSearchingTagCondition();
+        newPWD100SsidPasswordCommand();
+        newPWD100SsidPasswordIpCommand();
     }
 
     @Override
@@ -355,6 +360,7 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
         newTagRemovedThresholdCommand();
         newTagPresentedEventThresholdCommand();
         newInventoryRoundIntervalCommand();
+        newGetFirmwareVersion();
     }
 
     @Override
@@ -369,10 +375,11 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mScanModeCommand);
         mAdapter.add(mTriggerCommand);
         mAdapter.add(mCommandTrigger);
-        mAdapter.add(mSsidPasswordCommand);
         mAdapter.add(mInventoryOptionCommand);
         mAdapter.add(mNewSearchingTagConditionCommand);
         mAdapter.add(mAppendSearchingTagConditionCommand);
+        mAdapter.add(mSsidPasswordCommand);
+        mAdapter.add(mSsidPasswordIpCommand);
     }
 
     @Override
@@ -385,6 +392,7 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mTagPresentedRepeatIntervalCommand);
         mAdapter.add(mTagRemovedThresholdCommand);
         mAdapter.add(mInventoryRoundIntervalCommand);
+        mAdapter.add(mGetFwVersion);
     }
 
     private void newStopInventoryCommand() {
@@ -409,17 +417,6 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
         });
     }
 
-
-    private void newPWD100SsidPasswordCommand() {
-        mSsidPasswordCommand = new GeneralCommandItem("Set WiFi Settings", null, "Set"
-                , new EditTextTitleParamData("SSID", "SSID of station mode")
-                , new EditTextTitleParamData("Password", "Password of station mode"));
-        mSsidPasswordCommand.setRightOnClickListener(v -> {
-            EditTextTitleParamData viewData0 = (EditTextTitleParamData) mSsidPasswordCommand.getViewDataArray()[0];
-            EditTextTitleParamData viewData1 = (EditTextTitleParamData) mSsidPasswordCommand.getViewDataArray()[1];
-            ((PWD100) mUhf).setWifiSettings(viewData0.getSelected(), viewData1.getSelected());
-        });
-    }
 
     private void newPWD100InventoryOption() {
         mInventoryOptionCommand = new GeneralCommandItem("Get/Set Inventory Option", new SpinnerParamData<>(InventoryOption.class));
@@ -558,7 +555,7 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
         mQCommand.setLeftOnClickListener(v -> mUhf.getQValue(mTemp));
         mQCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mQCommand.getViewDataArray()[0];
-            mUhf.setQValue(mTemp, viewData.getSelected());
+            mUhf.setQValue(mTemp, (byte) viewData.getSelected());
         });
     }
 
@@ -603,6 +600,11 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
         });
     }
 
+    private void newGetFirmwareVersion() {
+        mGetFwVersion = new GeneralCommandItem("Get Firmware Version", null, "Get");
+        mGetFwVersion.setRightOnClickListener(v -> mUhf.getFirmwareVersion());
+    }
+
     private void newPWD100ScanModeCommand() {
         mScanModeCommand = new GeneralCommandItem("Get/Set Scan Mode"
                 , new SpinnerParamData<>(ScanMode.class));
@@ -620,5 +622,34 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
             ((PWD100) mUhf).setCommandTriggerState((State) state.getSelected());
         });
         mCommandTrigger.setLeftOnClickListener(v -> ((PWD100) mUhf).getCommandTriggerState());
+    }
+
+    private void newPWD100SsidPasswordCommand() {
+        mSsidPasswordCommand = new GeneralCommandItem("Set WiFi Settings", null, "Set"
+                , new EditTextTitleParamData("SSID", "SSID of station mode")
+                , new EditTextTitleParamData("Password", "Password of station mode"));
+        mSsidPasswordCommand.setRightOnClickListener(v -> {
+            EditTextTitleParamData ssid = (EditTextTitleParamData) mSsidPasswordCommand.getViewDataArray()[0];
+            EditTextTitleParamData password = (EditTextTitleParamData) mSsidPasswordCommand.getViewDataArray()[1];
+            ((PWD100) mUhf).setWifiSettings(ssid.getSelected(), password.getSelected());
+        });
+    }
+
+    private void newPWD100SsidPasswordIpCommand() {
+        mSsidPasswordIpCommand = new GeneralCommandItem("Set WiFi Settings", null, "Set"
+                , new EditTextTitleParamData("SSID", "SSID of station mode")
+                , new EditTextTitleParamData("Password", "Password of station mode")
+                , new EditTextTitleParamData("IP", "IP address")
+                , new EditTextTitleParamData("Gateway", "Gateway")
+                , new EditTextTitleParamData("Subnet mask", "Subnet mask")
+        );
+        mSsidPasswordIpCommand.setRightOnClickListener(v -> {
+            EditTextTitleParamData ssid = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[0];
+            EditTextTitleParamData password = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[1];
+            EditTextTitleParamData ip = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[2];
+            EditTextTitleParamData gateway = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[3];
+            EditTextTitleParamData subnetMask = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[4];
+            ((PWD100) mUhf).setWifiSettings(ssid.getSelected(), password.getSelected(), ip.getSelected(), gateway.getSelected(), subnetMask.getSelected());
+        });
     }
 }

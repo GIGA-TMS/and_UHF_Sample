@@ -18,6 +18,7 @@ import com.gigatms.parameters.ActiveMode;
 import com.gigatms.parameters.EventType;
 import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
+import com.gigatms.parameters.KeyboardSimulation;
 import com.gigatms.parameters.MemoryBank;
 import com.gigatms.parameters.MemoryBankSelection;
 import com.gigatms.parameters.OutputInterface;
@@ -30,14 +31,16 @@ import com.gigatms.parameters.Target;
 import com.gigatms.tools.GTool;
 
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.gigatms.parameters.OutputInterface.DEFAULT;
-import static com.gigatms.parameters.OutputInterface.HID_KEYBOARD;
+import static com.gigatms.parameters.KeyboardSimulation.DISABLE;
+import static com.gigatms.parameters.KeyboardSimulation.HID_KEYBOARD;
+import static com.gigatms.parameters.OutputInterface.HID_N_VCOM;
 import static com.gigatms.parameters.Session.SL;
 
 public class MU400HDeviceControlFragment extends DeviceControlFragment {
@@ -56,12 +59,13 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mTagRemovedThresholdCommand;
     private GeneralCommandItem mTagPresentedRepeatIntervalCommand;
     private GeneralCommandItem mInventoryRoundIntervalCommand;
+    private GeneralCommandItem mGetFwVersion;
 
     private GeneralCommandItem mEventTypeCommand;
     private GeneralCommandItem mFilterCommand;
     private GeneralCommandItem mPostDataDelimiterCommand;
     private GeneralCommandItem mMemoryBankSelectionCommand;
-    private GeneralCommandItem mOutputInterfaceCommand;
+    private GeneralCommandItem mOutputInterfacesCommand;
 
     public static MU400HDeviceControlFragment newFragment(String devMacAddress) {
         Bundle args = new Bundle();
@@ -276,10 +280,12 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(hundredMilliSeconds);
                 mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition());
-                if (hundredMilliSeconds == 255 || hundredMilliSeconds == 254) {
-                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[Default]: Never Repeat!");
+                if (hundredMilliSeconds == 254) {
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Never");
+                } else if (hundredMilliSeconds == 0) {
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Immediately");
                 } else {
-                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: " + hundredMilliSeconds + "*100 ms");
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[:" + hundredMilliSeconds + "*100 ms");
                 }
             }
 
@@ -288,8 +294,8 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
                 selected.setSelected(inventoryRound);
                 mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition());
-                if (inventoryRound == 255 || inventoryRound == 5) {
-                    onUpdateLog(TAG, "didGetTagRemovedThreshold[Default]: " + 5 + " inventory rounds.");
+                if (inventoryRound == 0) {
+                    onUpdateLog(TAG, "didGetTagRemovedThreshold: Immediately");
                 } else {
                     onUpdateLog(TAG, "didGetTagRemovedThreshold: " + inventoryRound + " inventory rounds.");
                 }
@@ -300,19 +306,24 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(tenMilliSeconds);
                 mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition());
-                if (tenMilliSeconds == 0 || tenMilliSeconds == 255) {
-                    onUpdateLog(TAG, "didGetInventoryRoundInterval[Default]: " + 0 + "*10 ms");
+                if (tenMilliSeconds == 0) {
+                    onUpdateLog(TAG, "didGetInventoryRoundInterval: Immediately");
                 } else {
                     onUpdateLog(TAG, "didGetInventoryRoundInterval: " + tenMilliSeconds + "*10 ms");
                 }
             }
 
             @Override
-            public void didGetOutputInterface(OutputInterface outputInterface) {
-                SpinnerParamData selected1 = (SpinnerParamData) mOutputInterfaceCommand.getViewDataArray()[0];
-                selected1.setSelected(outputInterface);
-                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mOutputInterfaceCommand.getPosition()));
-                onUpdateLog(TAG, "didGetOutputInterface: " + outputInterface.name());
+            public void didGetOutputInterfaces(KeyboardSimulation keyboardSimulation
+                    , final Set<OutputInterface> outputInterfaces) {
+                SpinnerParamData keyboard = (SpinnerParamData) mOutputInterfacesCommand.getViewDataArray()[0];
+                CheckboxListParamData output = (CheckboxListParamData) mOutputInterfacesCommand.getViewDataArray()[1];
+                keyboard.setSelected(keyboardSimulation);
+                output.setSelected(outputInterfaces);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mOutputInterfacesCommand.getPosition()));
+                onUpdateLog(TAG, "didGetOutputInterface: " +
+                        "\n\tKeyboardSimulation: " + keyboardSimulation +
+                        "\n\tOutputInterface: " + Arrays.toString(outputInterfaces.toArray()));
             }
 
             @Override
@@ -352,6 +363,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         newTagRemovedThresholdCommand();
         newTagPresentedEventThresholdCommand();
         newInventoryRoundIntervalCommand();
+        newGetFirmwareVersion();
     }
 
     @Override
@@ -368,7 +380,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mFilterCommand);
         mAdapter.add(mPostDataDelimiterCommand);
         mAdapter.add(mMemoryBankSelectionCommand);
-        mAdapter.add(mOutputInterfaceCommand);
+        mAdapter.add(mOutputInterfacesCommand);
     }
 
     @Override
@@ -381,6 +393,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mTagPresentedRepeatIntervalCommand);
         mAdapter.add(mTagRemovedThresholdCommand);
         mAdapter.add(mInventoryRoundIntervalCommand);
+        mAdapter.add(mGetFwVersion);
     }
 
     private void newStopInventoryCommand() {
@@ -472,18 +485,22 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
     }
 
     private void newOutputInterfaceCommand() {
-        mOutputInterfaceCommand = new GeneralCommandItem("Get/Set Output Interface"
-                , new SpinnerParamData<>(new OutputInterface[]{DEFAULT, HID_KEYBOARD}));
-        mOutputInterfaceCommand.setLeftOnClickListener(v -> ((MU400H) mUhf).getOutputInterface(mTemp));
-        mOutputInterfaceCommand.setRightOnClickListener(v -> {
-            SpinnerParamData outputInterface = (SpinnerParamData) mOutputInterfaceCommand.getViewDataArray()[0];
-            ((MU400H) mUhf).setOutputInterface(mTemp, (OutputInterface) outputInterface.getSelected());
+        mOutputInterfacesCommand = new GeneralCommandItem("Get/Set Output Interface"
+                , new SpinnerParamData<>(new KeyboardSimulation[]{DISABLE, HID_KEYBOARD})
+                , new CheckboxListParamData<>(EnumSet.of(HID_N_VCOM)));
+        mOutputInterfacesCommand.setLeftOnClickListener(v -> ((MU400H) mUhf).getOutputInterfaces(mTemp));
+        mOutputInterfacesCommand.setRightOnClickListener(v -> {
+            SpinnerParamData keyboard = (SpinnerParamData) mOutputInterfacesCommand.getViewDataArray()[0];
+            CheckboxListParamData outputInterface = (CheckboxListParamData) mOutputInterfacesCommand.getViewDataArray()[1];
+            ((MU400H) mUhf).setOutputInterfaces(mTemp
+                    , (KeyboardSimulation) keyboard.getSelected()
+                    , outputInterface.getSelected());
         });
     }
 
     private void newInventoryRoundIntervalCommand() {
         mInventoryRoundIntervalCommand = new GeneralCommandItem("Get/Set Inventory Round Interval"
-                , new SeekBarParamData(0, 255));
+                , new SeekBarParamData(0, 254));
         mInventoryRoundIntervalCommand.setLeftOnClickListener(v -> mUhf.getInventoryRoundInterval(mTemp));
         mInventoryRoundIntervalCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
@@ -493,7 +510,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
 
     private void newTagPresentedEventThresholdCommand() {
         mTagPresentedRepeatIntervalCommand = new GeneralCommandItem("Get/Set Tag Presented Repeat Interval"
-                , new SeekBarParamData(0, 255));
+                , new SeekBarParamData(0, 254));
         mTagPresentedRepeatIntervalCommand.setLeftOnClickListener(v -> mUhf.getTagPresentedRepeatInterval(mTemp));
         mTagPresentedRepeatIntervalCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
@@ -503,7 +520,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
 
     private void newTagRemovedThresholdCommand() {
         mTagRemovedThresholdCommand = new GeneralCommandItem("Get/Set Tag Removed Threshold"
-                , new SeekBarParamData(0, 255));
+                , new SeekBarParamData(0, 254));
         mTagRemovedThresholdCommand.setLeftOnClickListener(v -> mUhf.getTagRemovedThreshold(mTemp));
         mTagRemovedThresholdCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
@@ -543,7 +560,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         mQCommand.setLeftOnClickListener(v -> mUhf.getQValue(mTemp));
         mQCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mQCommand.getViewDataArray()[0];
-            mUhf.setQValue(mTemp, viewData.getSelected());
+            mUhf.setQValue(mTemp, (byte) viewData.getSelected());
         });
     }
 
@@ -586,5 +603,10 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
             SeekBarParamData viewData = (SeekBarParamData) mRfPowerCommand.getViewDataArray()[0];
             mUhf.setRfPower(mTemp, (byte) viewData.getSelected());
         });
+    }
+
+    private void newGetFirmwareVersion() {
+        mGetFwVersion = new GeneralCommandItem("Get Firmware Version", null, "Get");
+        mGetFwVersion.setRightOnClickListener(v -> mUhf.getFirmwareVersion());
     }
 }

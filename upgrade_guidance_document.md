@@ -310,6 +310,18 @@ didGetTriggerType(Set<TriggerType> triggerSources) -> didGetTriggerType(TriggerT
 
 Please read readme.md document to implement device with trigger.
 
+--------
+# Upgrade UHF SDK from 2.0.0.6 to 2.0.0.7
+
+## MU400H
+
+The methods below are refactor.
+
+```java
+setOutputInterface(boolean temporary,  OutputInterface outputInterfaces) ->  setOutputInterfaces(boolean temporary, KeyboardSimulation keyboardSimulation, Set<OutputInterface> outputInterfaces)
+```
+
+
 Support
 -------
 [Related download](http://ftp.gigatms.com.tw/public/disks/disk5472/index.html)

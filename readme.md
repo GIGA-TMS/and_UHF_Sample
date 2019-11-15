@@ -7,11 +7,10 @@ The GIGA-TMS UHF SDK sample shows a list of available devices and provides an in
 
 Pre-requisites
 --------------
-- Android version 5.0~10.0
-- Android API 21~29
+- Android version 5.0~9.0
+- Android API 21~28
 - Android IDE 3.5.1
 - Androidx
-- Java 8
 
 
 Getting Started
@@ -45,7 +44,7 @@ This tutorials will give you straight-and-simple 1-2-3 style operations about th
 
 This article don't involve too much details. If you need comprehensive understanding, please read the complete manual topic, and not just the tutorial.
 
-TS800, TS100, MU400H, NR800, PWD100 and UR0250 are used in the similar way. The tutorial use TS800 as a example.
+TS800, TS100, MU400H and UR0250 are used in the similar way. The tutorial use TS800 as a example.
 
 ### Use UHFScanner to scan TS800 reader
 
@@ -86,9 +85,8 @@ A connection callback function will called if the connection status with remote 
  CommunicationCallback mCommunicationCallback = new CommunicationCallback{
     @Override 
     public void didUpdateConnection(ConnectionState connectedState, CommunicationType type) {
-        //Please call initializeSettings method every time when connection is done.
         if(commectedState==CONNECTED){
-            ts800.initializeSettings();
+            //TODO Any function after the remote device is connected
         }
         //TODO There are three connectionState: Connected, Connecting and Disconnection. Please make sure the remote TS800 is connected before operating remote TS800.  
         //TODO TS800 has BLE, TCP connection types

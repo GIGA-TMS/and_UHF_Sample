@@ -31,6 +31,7 @@ import com.gigatms.parameters.Session;
 import com.gigatms.parameters.TagDataEncodeType;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
+import com.gigatms.tools.GLog;
 import com.gigatms.tools.GTool;
 
 import java.util.Arrays;
@@ -60,6 +61,7 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mTagRemovedThresholdCommand;
     private GeneralCommandItem mTagPresentedRepeatIntervalCommand;
     private GeneralCommandItem mInventoryRoundIntervalCommand;
+    private GeneralCommandItem mGetFwVersion;
 
     private GeneralCommandItem mBleDeviceNameCommand;
     private GeneralCommandItem mBuzzerOperationCommand;
@@ -69,6 +71,8 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mFilterCommand;
     private GeneralCommandItem mPostDataDelimiterCommand;
     private GeneralCommandItem mMemoryBankSelectionCommand;
+    private GeneralCommandItem mSsidPasswordCommand;
+    private GeneralCommandItem mSsidPasswordIpCommand;
 
     public static TS100DeviceControlFragment newFragment(String devMacAddress) {
         Bundle args = new Bundle();
@@ -315,10 +319,12 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(hundredMilliSeconds);
                 mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition());
-                if (hundredMilliSeconds == 255 || hundredMilliSeconds == 254) {
-                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[Default]: Never Repeat!");
+                if (hundredMilliSeconds == 254) {
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Never");
+                } else if (hundredMilliSeconds == 0) {
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Immediately");
                 } else {
-                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: " + hundredMilliSeconds + "*100 ms");
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[:" + hundredMilliSeconds + "*100 ms");
                 }
             }
 
@@ -327,8 +333,8 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
                 selected.setSelected(inventoryRound);
                 mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition());
-                if (inventoryRound == 255 || inventoryRound == 5) {
-                    onUpdateLog(TAG, "didGetTagRemovedThreshold[Default]: " + 5 + " inventory rounds.");
+                if (inventoryRound == 0) {
+                    onUpdateLog(TAG, "didGetTagRemovedThreshold: Immediately");
                 } else {
                     onUpdateLog(TAG, "didGetTagRemovedThreshold: " + inventoryRound + " inventory rounds.");
                 }
@@ -339,8 +345,8 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(tenMilliSeconds);
                 mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition());
-                if (tenMilliSeconds == 0 || tenMilliSeconds == 255) {
-                    onUpdateLog(TAG, "didGetInventoryRoundInterval[Default]: " + 0 + "*10 ms");
+                if (tenMilliSeconds == 0) {
+                    onUpdateLog(TAG, "didGetInventoryRoundInterval: Immediately");
                 } else {
                     onUpdateLog(TAG, "didGetInventoryRoundInterval: " + tenMilliSeconds + "*10 ms");
                 }
@@ -375,6 +381,8 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
         newEnableFilterCommand();
         newPostDataDelimiterCommand();
         newMemoryBankSelectionCommand();
+        newSsidPasswordCommand();
+        newSsidPasswordIpCommand();
     }
 
     @Override
@@ -387,6 +395,7 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
         newTagRemovedThresholdCommand();
         newTagPresentedEventThresholdCommand();
         newInventoryRoundIntervalCommand();
+        newGetFirmwareVersion();
     }
 
     @Override
@@ -409,6 +418,10 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mFilterCommand);
         mAdapter.add(mPostDataDelimiterCommand);
         mAdapter.add(mMemoryBankSelectionCommand);
+        if (!mUhf.getCommunicationType().equals(CommunicationType.TCP)) {
+            mAdapter.add(mSsidPasswordCommand);
+            mAdapter.add(mSsidPasswordIpCommand);
+        }
     }
 
     @Override
@@ -421,6 +434,7 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mTagPresentedRepeatIntervalCommand);
         mAdapter.add(mTagRemovedThresholdCommand);
         mAdapter.add(mInventoryRoundIntervalCommand);
+        mAdapter.add(mGetFwVersion);
     }
 
     protected void newStartInventoryCommandEx() {
@@ -464,7 +478,7 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
 
 
     private void newBuzzerOperationCommand() {
-        mBuzzerOperationCommand = new GeneralCommandItem("Get/Set Buzzer Operation", new SpinnerParamData<>(BuzzerOperationMode.class));
+        mBuzzerOperationCommand = new GeneralCommandItem("Get/Set BuzzerAdapter Operation", new SpinnerParamData<>(BuzzerOperationMode.class));
         mBuzzerOperationCommand.setLeftOnClickListener(v -> {
             ((TS100) mUhf).getBuzzerOperationMode(mTemp);
         });
@@ -475,7 +489,7 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
     }
 
     private void newControlBuzzerCommand() {
-        mControlBuzzerCommand = new GeneralCommandItem("Control Buzzer", null, "Control"
+        mControlBuzzerCommand = new GeneralCommandItem("Control BuzzerAdapter", null, "Control"
                 , new SpinnerParamData<>(BuzzerAction.class));
         mControlBuzzerCommand.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mControlBuzzerCommand.getViewDataArray()[0];
@@ -550,30 +564,33 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
 
     private void newInventoryRoundIntervalCommand() {
         mInventoryRoundIntervalCommand = new GeneralCommandItem("Get/Set Inventory Round Interval"
-                , new SeekBarParamData(0, 255));
+                , new SeekBarParamData(0, 254));
         mInventoryRoundIntervalCommand.setLeftOnClickListener(v -> mUhf.getInventoryRoundInterval(mTemp));
         mInventoryRoundIntervalCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
+            GLog.d(TAG, "InventoryRoundInterval: " + viewData.getSelected());
             mUhf.setInventoryRoundInterval(mTemp, viewData.getSelected());
         });
     }
 
     private void newTagPresentedEventThresholdCommand() {
         mTagPresentedRepeatIntervalCommand = new GeneralCommandItem("Get/Set Tag Presented Repeat Interval"
-                , new SeekBarParamData(0, 255));
+                , new SeekBarParamData(0, 254));
         mTagPresentedRepeatIntervalCommand.setLeftOnClickListener(v -> mUhf.getTagPresentedRepeatInterval(mTemp));
         mTagPresentedRepeatIntervalCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
+            GLog.d(TAG, "Repeat: " + viewData.getSelected());
             mUhf.setTagPresentedRepeatInterval(mTemp, viewData.getSelected());
         });
     }
 
     private void newTagRemovedThresholdCommand() {
         mTagRemovedThresholdCommand = new GeneralCommandItem("Get/Set Tag Removed Threshold"
-                , new SeekBarParamData(0, 255));
+                , new SeekBarParamData(0, 254));
         mTagRemovedThresholdCommand.setLeftOnClickListener(v -> mUhf.getTagRemovedThreshold(mTemp));
         mTagRemovedThresholdCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
+            GLog.d(TAG, "Removed: " + viewData.getSelected());
             mUhf.setTagRemovedThreshold(mTemp, viewData.getSelected());
         });
     }
@@ -610,7 +627,7 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
         mQCommand.setLeftOnClickListener(v -> mUhf.getQValue(mTemp));
         mQCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mQCommand.getViewDataArray()[0];
-            mUhf.setQValue(mTemp, viewData.getSelected());
+            mUhf.setQValue(mTemp, (byte) viewData.getSelected());
         });
     }
 
@@ -652,6 +669,40 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
         mRfPowerCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mRfPowerCommand.getViewDataArray()[0];
             mUhf.setRfPower(mTemp, (byte) viewData.getSelected());
+        });
+    }
+
+    private void newGetFirmwareVersion() {
+        mGetFwVersion = new GeneralCommandItem("Get Firmware Version", null, "Get");
+        mGetFwVersion.setRightOnClickListener(v -> mUhf.getFirmwareVersion());
+    }
+
+    private void newSsidPasswordCommand() {
+        mSsidPasswordCommand = new GeneralCommandItem("Set WiFi Settings", null, "Set"
+                , new EditTextTitleParamData("SSID", "SSID of station mode")
+                , new EditTextTitleParamData("Password", "Password of station mode"));
+        mSsidPasswordCommand.setRightOnClickListener(v -> {
+            EditTextTitleParamData ssid = (EditTextTitleParamData) mSsidPasswordCommand.getViewDataArray()[0];
+            EditTextTitleParamData password = (EditTextTitleParamData) mSsidPasswordCommand.getViewDataArray()[1];
+            ((TS100) mUhf).setWifiSettings(ssid.getSelected(), password.getSelected());
+        });
+    }
+
+    private void newSsidPasswordIpCommand() {
+        mSsidPasswordIpCommand = new GeneralCommandItem("Set WiFi Settings", null, "Set"
+                , new EditTextTitleParamData("SSID", "SSID of station mode")
+                , new EditTextTitleParamData("Password", "Password of station mode")
+                , new EditTextTitleParamData("IP", "IP address")
+                , new EditTextTitleParamData("Gateway", "Gateway")
+                , new EditTextTitleParamData("Subnet mask", "Subnet mask")
+        );
+        mSsidPasswordIpCommand.setRightOnClickListener(v -> {
+            EditTextTitleParamData ssid = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[0];
+            EditTextTitleParamData password = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[1];
+            EditTextTitleParamData ip = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[2];
+            EditTextTitleParamData gateway = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[3];
+            EditTextTitleParamData subnetMask = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[4];
+            ((TS100) mUhf).setWifiSettings(ssid.getSelected(), password.getSelected(), ip.getSelected(), gateway.getSelected(), subnetMask.getSelected());
         });
     }
 }

@@ -7,6 +7,14 @@ import com.gigatms.DecodedTagData;
 import com.gigatms.TagInformationFormat;
 import com.gigatms.UHFCallback;
 import com.gigatms.UR0250;
+import com.gigatms.uhf.DeviceControlFragment;
+import com.gigatms.uhf.GeneralCommandItem;
+import com.gigatms.uhf.paramsData.CheckboxListParamData;
+import com.gigatms.uhf.paramsData.EditTextParamData;
+import com.gigatms.uhf.paramsData.EditTextTitleParamData;
+import com.gigatms.uhf.paramsData.SeekBarParamData;
+import com.gigatms.uhf.paramsData.SpinnerParamData;
+import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
 import com.gigatms.parameters.ActiveMode;
 import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
@@ -19,14 +27,6 @@ import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
 import com.gigatms.parameters.TriggerType;
 import com.gigatms.tools.GTool;
-import com.gigatms.uhf.DeviceControlFragment;
-import com.gigatms.uhf.GeneralCommandItem;
-import com.gigatms.uhf.paramsData.CheckboxListParamData;
-import com.gigatms.uhf.paramsData.EditTextParamData;
-import com.gigatms.uhf.paramsData.EditTextTitleParamData;
-import com.gigatms.uhf.paramsData.SeekBarParamData;
-import com.gigatms.uhf.paramsData.SpinnerParamData;
-import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
 
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -54,12 +54,15 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mTagRemovedThresholdCommand;
     private GeneralCommandItem mTagPresentedRepeatIntervalCommand;
     private GeneralCommandItem mInventoryRoundIntervalCommand;
+    private GeneralCommandItem mGetFwVersion;
 
     private GeneralCommandItem mBleDeviceNameCommand;
     private GeneralCommandItem mTriggerCommand;
     private GeneralCommandItem mIoStateCommand;
     private GeneralCommandItem mScanModeCommand;
     private GeneralCommandItem mCommandTrigger;
+    private GeneralCommandItem mSsidPasswordCommand;
+    private GeneralCommandItem mSsidPasswordIpCommand;
 
     public static UR0250DeviceControlFragment newFragment(String devMacAddress) {
         Bundle args = new Bundle();
@@ -261,8 +264,10 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(hundredMilliSeconds);
                 mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition());
-                if (hundredMilliSeconds == 255 || hundredMilliSeconds == 0) {
-                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[Default]: Immediately");
+                if (hundredMilliSeconds == 254) {
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Never");
+                } else if (hundredMilliSeconds == 0) {
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Immediately");
                 } else {
                     onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[:" + hundredMilliSeconds + "*100 ms");
                 }
@@ -273,8 +278,8 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
                 selected.setSelected(inventoryRound);
                 mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition());
-                if (inventoryRound == 255 || inventoryRound == 5) {
-                    onUpdateLog(TAG, "didGetTagRemovedThreshold[Default]: " + 5 + " inventory rounds.");
+                if (inventoryRound == 0) {
+                    onUpdateLog(TAG, "didGetTagRemovedThreshold: Immediately");
                 } else {
                     onUpdateLog(TAG, "didGetTagRemovedThreshold: " + inventoryRound + " inventory rounds.");
                 }
@@ -285,8 +290,8 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
                 SeekBarParamData selected = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(tenMilliSeconds);
                 mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition());
-                if (tenMilliSeconds == 0 || tenMilliSeconds == 255) {
-                    onUpdateLog(TAG, "didGetInventoryRoundInterval[Default]: " + 0 + "*10 ms");
+                if (tenMilliSeconds == 0) {
+                    onUpdateLog(TAG, "didGetInventoryRoundInterval: Immediately");
                 } else {
                     onUpdateLog(TAG, "didGetInventoryRoundInterval: " + tenMilliSeconds + "*10 ms");
                 }
@@ -324,6 +329,8 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         newUr0250IoStateCommand();
         newScanModeCommand();
         newCommandTrigger();
+        newSsidPasswordCommand();
+        newSsidPasswordIpCommand();
     }
 
     @Override
@@ -336,6 +343,7 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         newTagRemovedThresholdCommand();
         newTagPresentedEventThresholdCommand();
         newInventoryRoundIntervalCommand();
+        newGetFirmwareVersion();
     }
 
     @Override
@@ -354,6 +362,10 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mScanModeCommand);
         mAdapter.add(mCommandTrigger);
         mAdapter.add(mIoStateCommand);
+        if (!mUhf.getCommunicationType().equals(CommunicationType.TCP)) {
+            mAdapter.add(mSsidPasswordCommand);
+            mAdapter.add(mSsidPasswordIpCommand);
+        }
     }
 
     @Override
@@ -366,6 +378,7 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mTagPresentedRepeatIntervalCommand);
         mAdapter.add(mTagRemovedThresholdCommand);
         mAdapter.add(mInventoryRoundIntervalCommand);
+        mAdapter.add(mGetFwVersion);
     }
 
     private void newStartInventoryCommand() {
@@ -492,7 +505,7 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         mQCommand.setLeftOnClickListener(v -> mUhf.getQValue(mTemp));
         mQCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mQCommand.getViewDataArray()[0];
-            mUhf.setQValue(mTemp, viewData.getSelected());
+            mUhf.setQValue(mTemp, (byte) viewData.getSelected());
         });
     }
 
@@ -537,6 +550,11 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         });
     }
 
+    private void newGetFirmwareVersion() {
+        mGetFwVersion = new GeneralCommandItem("Get Firmware Version", null, "Get");
+        mGetFwVersion.setRightOnClickListener(v -> mUhf.getFirmwareVersion());
+    }
+
     private void newScanModeCommand() {
         mScanModeCommand = new GeneralCommandItem("Get/Set Scan Mode"
                 , new SpinnerParamData<>(ScanMode.class));
@@ -554,5 +572,35 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
             ((UR0250) mUhf).setCommandTriggerState((State) state.getSelected());
         });
         mCommandTrigger.setLeftOnClickListener(v -> ((UR0250) mUhf).getCommandTriggerState());
+    }
+
+
+    private void newSsidPasswordCommand() {
+        mSsidPasswordCommand = new GeneralCommandItem("Set WiFi Settings", null, "Set"
+                , new EditTextTitleParamData("SSID", "SSID of station mode")
+                , new EditTextTitleParamData("Password", "Password of station mode"));
+        mSsidPasswordCommand.setRightOnClickListener(v -> {
+            EditTextTitleParamData ssid = (EditTextTitleParamData) mSsidPasswordCommand.getViewDataArray()[0];
+            EditTextTitleParamData password = (EditTextTitleParamData) mSsidPasswordCommand.getViewDataArray()[1];
+            ((UR0250) mUhf).setWifiSettings(ssid.getSelected(), password.getSelected());
+        });
+    }
+
+    private void newSsidPasswordIpCommand() {
+        mSsidPasswordIpCommand = new GeneralCommandItem("Set WiFi Settings", null, "Set"
+                , new EditTextTitleParamData("SSID", "SSID of station mode")
+                , new EditTextTitleParamData("Password", "Password of station mode")
+                , new EditTextTitleParamData("IP", "IP address")
+                , new EditTextTitleParamData("Gateway", "Gateway")
+                , new EditTextTitleParamData("Subnet mask", "Subnet mask")
+        );
+        mSsidPasswordIpCommand.setRightOnClickListener(v -> {
+            EditTextTitleParamData ssid = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[0];
+            EditTextTitleParamData password = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[1];
+            EditTextTitleParamData ip = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[2];
+            EditTextTitleParamData gateway = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[3];
+            EditTextTitleParamData subnetMask = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[4];
+            ((UR0250) mUhf).setWifiSettings(ssid.getSelected(), password.getSelected(), ip.getSelected(), gateway.getSelected(), subnetMask.getSelected());
+        });
     }
 }

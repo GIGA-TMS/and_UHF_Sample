@@ -125,7 +125,6 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
                 ((UR0250) mUhf).getBleRomVersion();
             }
         }
-        mUhf.initializeSettings();
         new ViewCreateAsyncTask().execute();
     }
 
@@ -438,7 +437,7 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
             getActivity().runOnUiThread(() -> updateConnectionViews(connectState));
         }
         if (connectState.equals(ConnectionState.CONNECTED)) {
-            mUhf.initializeSettings();
+
         }
         onUpdateDebugLog(TAG, "didUpdateConnection: " + mUhf.getDeviceID() + ": " + connectState.name());
     }

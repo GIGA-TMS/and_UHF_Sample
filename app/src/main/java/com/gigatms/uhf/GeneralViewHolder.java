@@ -198,7 +198,7 @@ public class GeneralViewHolder extends RecyclerView.ViewHolder {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
                     textView.setText(String.valueOf(progress + seekBarParamData.getMinValue()));
-                    seekBarParamData.setSelected((byte) (progress + seekBarParamData.getMinValue()));
+                    seekBarParamData.setSelected(progress + seekBarParamData.getMinValue());
                 }
             }
 
@@ -352,7 +352,7 @@ public class GeneralViewHolder extends RecyclerView.ViewHolder {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
                     value.setText(String.valueOf(progress + seekBarTitleParamData.getMinValue()));
-                    seekBarTitleParamData.setSelected((byte) (progress + seekBarTitleParamData.getMinValue()));
+                    seekBarTitleParamData.setSelected(progress + seekBarTitleParamData.getMinValue());
                 }
             }
 
