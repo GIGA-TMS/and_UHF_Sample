@@ -12,6 +12,7 @@ import com.gigatms.uhf.GeneralCommandItem;
 import com.gigatms.uhf.paramsData.CheckboxListParamData;
 import com.gigatms.uhf.paramsData.EditTextParamData;
 import com.gigatms.uhf.paramsData.EditTextTitleParamData;
+import com.gigatms.uhf.paramsData.EventTypesParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
 import com.gigatms.uhf.paramsData.SpinnerParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
@@ -29,9 +30,12 @@ import com.gigatms.parameters.State;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
 import com.gigatms.parameters.TriggerType;
+import com.gigatms.parameters.event.BaseTagEvent;
+import com.gigatms.parameters.event.TagPresentedEvent;
 import com.gigatms.tools.GTool;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -45,6 +49,8 @@ import static com.gigatms.parameters.OutputInterface.TCP_SERVER;
 import static com.gigatms.parameters.Session.SL;
 
 public class TS800DeviceControlFragment extends DeviceControlFragment {
+    private final String[] SECOND_CHOICES = {"REMOVE EVENT", "TID BANK", "USER BANK"};
+    private final String[] EVENT_TYPES = {"TAG_PRESENTED_EVENT"};
 
     private GeneralCommandItem mStopInventoryCommand;
     private GeneralCommandItem mInventoryCommand;
@@ -68,6 +74,7 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mTriggerCommand;
     private GeneralCommandItem mScanModeCommand;
     private GeneralCommandItem mCommandTrigger;
+    private GeneralCommandItem mEventTypeCommand;
     private GeneralCommandItem mSsidPasswordCommand;
     private GeneralCommandItem mSsidPasswordIpCommand;
 
@@ -233,6 +240,9 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
                 if (tagInformationFormat.getTidHex().length() != 0) {
                     message = message + "\n\tTID: " + tagInformationFormat.getTidHex();
                 }
+                if (tagInformationFormat.getUserHex().length() != 0) {
+                    message = message + "\n\tUser: " + tagInformationFormat.getUserHex();
+                }
                 onUpdateLog(TAG, message);
             }
 
@@ -269,24 +279,16 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didReadEpc(byte[] epc) {
-                EditTextTitleParamData secondParam = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[1];
-                secondParam.setSelected(GTool.bytesToHexString(epc));
-                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mReadWriteEpcCommand.getPosition()));
-                onUpdateLog(TAG, "didReadEpc: " + GTool.bytesToHexString(epc));
-            }
-
-            @Override
             public void didGetTagPresentedRepeatInterval(int hundredMilliSeconds) {
                 SeekBarParamData selected = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(hundredMilliSeconds);
-                mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition()));
                 if (hundredMilliSeconds == 254) {
                     onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Never");
                 } else if (hundredMilliSeconds == 0) {
                     onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Immediately");
                 } else {
-                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[:" + hundredMilliSeconds + "*100 ms");
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval:" + hundredMilliSeconds + "*100 ms");
                 }
             }
 
@@ -294,7 +296,7 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
             public void didGetTagRemovedThreshold(int inventoryRound) {
                 SeekBarParamData selected = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
                 selected.setSelected(inventoryRound);
-                mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition()));
                 if (inventoryRound == 0) {
                     onUpdateLog(TAG, "didGetTagRemovedThreshold: Immediately");
                 } else {
@@ -306,7 +308,7 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
             public void didGetInventoryRoundInterval(int tenMilliSeconds) {
                 SeekBarParamData selected = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(tenMilliSeconds);
-                mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition()));
                 if (tenMilliSeconds == 0) {
                     onUpdateLog(TAG, "didGetInventoryRoundInterval: Immediately");
                 } else {
@@ -332,8 +334,8 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
 
             @Override
             public void didGetCommandTriggerState(State state) {
-                SpinnerParamData seleced = (SpinnerParamData) mCommandTrigger.getViewDataArray()[0];
-                seleced.setSelected(state);
+                SpinnerParamData selected = (SpinnerParamData) mCommandTrigger.getViewDataArray()[0];
+                selected.setSelected(state);
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mCommandTrigger.getPosition()));
                 onUpdateLog(TAG, "didGetCommandTriggerState: " + state.name());
             }
@@ -344,6 +346,34 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
                 seleced.setSelected(activeMode);
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mInventoryActiveMode.getPosition()));
                 onUpdateLog(TAG, "didGetInventoryActiveMode: " + activeMode.name());
+            }
+
+            @Override
+            public void didGetEventType(final BaseTagEvent baseTagEvent) {
+                EventTypesParamData eventType = (EventTypesParamData) mEventTypeCommand.getViewDataArray()[0];
+                StringBuilder stringBuilder = new StringBuilder();
+                if (baseTagEvent instanceof TagPresentedEvent) {
+                    stringBuilder.append(EVENT_TYPES[0]);
+                    eventType.setFirstSelect(EVENT_TYPES[0]);
+                    TagPresentedEvent event = (TagPresentedEvent) baseTagEvent;
+                    Set<String> secondSelected = new HashSet<>();
+                    if (event.hasRemoveEvent()) {
+                        secondSelected.add(SECOND_CHOICES[0]);
+                        stringBuilder.append("\n\t").append(SECOND_CHOICES[0]);
+                    }
+                    if (event.hasTidBank()) {
+                        secondSelected.add(SECOND_CHOICES[1]);
+                        stringBuilder.append("\n\t").append(SECOND_CHOICES[1]);
+                    }
+                    if (event.hasUserBank()) {
+                        secondSelected.add(SECOND_CHOICES[2]);
+                        stringBuilder.append("\n\t").append(SECOND_CHOICES[2]);
+                    }
+                    eventType.setLastSelect(secondSelected);
+                }
+
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mEventTypeCommand.getPosition()));
+                onUpdateLog(TAG, "didGetEventType: " + stringBuilder.toString());
             }
         };
 
@@ -366,6 +396,7 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
         newTS800TriggerCommand();
         newScanModeCommand();
         newCommandTrigger();
+        newEventTypeCommand();
         newSsidPasswordCommand();
         newSsidPasswordIpCommand();
     }
@@ -398,6 +429,7 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mScanModeCommand);
         mAdapter.add(mTriggerCommand);
         mAdapter.add(mCommandTrigger);
+        mAdapter.add(mEventTypeCommand);
         mAdapter.add(mBuzzerOperationCommand);
         mAdapter.add(mControlBuzzerCommand);
         mAdapter.add(mIoStateCommand);
@@ -436,12 +468,13 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
 
     private void newInventoryActiveModeCommand() {
         mInventoryActiveMode = new GeneralCommandItem("Inventory Active Mode", "Get", "Set", new SpinnerParamData<>(new ActiveMode[]{READ, COMMAND}));
-        mInventoryActiveMode.setLeftOnClickListener(v -> mUhf.getInventoryActiveMode());
+        mInventoryActiveMode.setLeftOnClickListener(v -> ((TS800) mUhf).getInventoryActiveMode(true));
         mInventoryActiveMode.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];
-            mUhf.setInventoryActiveMode((ActiveMode) viewData.getSelected());
+            ((TS800) mUhf).setInventoryActiveMode(true, (ActiveMode) viewData.getSelected());
         });
     }
+
 
     private void newBleDeviceNameCommand() {
         mBleDeviceNameCommand = new GeneralCommandItem("Get/Set BLE Device Name"
@@ -527,10 +560,10 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
     private void newTagPresentedEventThresholdCommand() {
         mTagPresentedRepeatIntervalCommand = new GeneralCommandItem("Get/Set Tag Presented Repeat Interval"
                 , new SeekBarParamData(0, 254));
-        mTagPresentedRepeatIntervalCommand.setLeftOnClickListener(v -> mUhf.getTagPresentedRepeatInterval(mTemp));
+        mTagPresentedRepeatIntervalCommand.setLeftOnClickListener(v -> ((TS800) mUhf).getTagPresentedRepeatInterval(mTemp));
         mTagPresentedRepeatIntervalCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
-            mUhf.setTagPresentedRepeatInterval(mTemp, viewData.getSelected());
+            ((TS800) mUhf).setTagPresentedRepeatInterval(mTemp, viewData.getSelected());
         });
     }
 
@@ -670,6 +703,32 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
             EditTextTitleParamData gateway = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[3];
             EditTextTitleParamData subnetMask = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[4];
             ((TS800) mUhf).setWifiSettings(ssid.getSelected(), password.getSelected(), ip.getSelected(), gateway.getSelected(), subnetMask.getSelected());
+        });
+    }
+
+    private void newEventTypeCommand() {
+        EventTypesParamData mEventTypeParamData = new EventTypesParamData(
+                EVENT_TYPES, null
+                , SECOND_CHOICES);
+        mEventTypeCommand = new GeneralCommandItem("Get/Set Event Type"
+                , mEventTypeParamData);
+        mEventTypeCommand.setLeftOnClickListener(v -> ((TS800) mUhf).getEventType(mTemp));
+        mEventTypeCommand.setRightOnClickListener(v -> {
+            EventTypesParamData event = (EventTypesParamData) mEventTypeCommand.getViewDataArray()[0];
+            String eventType = event.getFirstSelect();
+            if (eventType.equals(EVENT_TYPES[0])) {
+                TagPresentedEvent.Builder builder = new TagPresentedEvent.Builder();
+                if (event.getLastSelect().contains(SECOND_CHOICES[0])) {
+                    builder.setRemoveEvent(true);
+                }
+                if (event.getLastSelect().contains(SECOND_CHOICES[1])) {
+                    builder.setTidBank(true);
+                }
+                if (event.getLastSelect().contains(SECOND_CHOICES[2])) {
+                    builder.setUserBank(true);
+                }
+                ((TS800) mUhf).setEventType(mTemp, builder.build());
+            }
         });
     }
 }

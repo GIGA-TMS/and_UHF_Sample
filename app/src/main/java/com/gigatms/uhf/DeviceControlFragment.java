@@ -34,6 +34,7 @@ import com.gigatms.UHFDevice;
 import com.gigatms.UR0250;
 import com.gigatms.uhf.paramsData.EditTextTitleParamData;
 import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
+import com.gigatms.exceptions.ErrorParameterException;
 import com.gigatms.parameters.LockAction;
 import com.gigatms.parameters.MemoryBank;
 import com.gigatms.tools.GLog;
@@ -70,7 +71,7 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
     protected RecyclerView mRecyclerView;
     protected CommandRecyclerViewAdapter mAdapter;
 
-    protected GeneralCommandItem mReadWriteEpcCommand;
+    protected GeneralCommandItem mWriteEpcCommand;
     protected GeneralCommandItem mWriteSelectedEpcCommand;
     protected GeneralCommandItem mReadTagWithSelectedEpcCommand;
     protected GeneralCommandItem mReadTagCommand;
@@ -180,7 +181,7 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
     protected abstract void onNewAdvanceCommands();
 
     private void onNewReadWriteTagCommands() {
-        newReadWriteEPCCommand();
+        newWriteEPCCommand();
         newWriteSelectedEpcCommand();
         newReadTagSelectedEpcCommand();
         newReadTagCommand();
@@ -199,7 +200,7 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
     protected abstract void onShowAdvanceViews();
 
     private void onShowReadWriteTagViews() {
-        mAdapter.add(mReadWriteEpcCommand);
+        mAdapter.add(mWriteEpcCommand);
         mAdapter.add(mWriteSelectedEpcCommand);
         mAdapter.add(mReadTagWithSelectedEpcCommand);
         mAdapter.add(mReadTagCommand);
@@ -248,36 +249,32 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
         mBtnConnect = view.findViewById(R.id.btn_connect);
     }
 
-    private void newReadWriteEPCCommand() {
-        mReadWriteEpcCommand = new GeneralCommandItem("Read/Write EPC"
+    private void newWriteEPCCommand() {
+        mWriteEpcCommand = new GeneralCommandItem("Write EPC", null, "Write"
                 , new EditTextTitleParamData("Password", "00000000", "00000000")
                 , new EditTextTitleParamData("EPC", "EPC"));
-        mReadWriteEpcCommand.setLeftOnClickListener(v -> {
-            EditTextTitleParamData firstParam = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[0];
-            mUhf.readEpc(firstParam.getSelected());
-        });
-        mReadWriteEpcCommand.setRightOnClickListener(v -> {
+        mWriteEpcCommand.setRightOnClickListener(v -> {
             try {
-                EditTextTitleParamData password = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[0];
-                EditTextTitleParamData epc = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[1];
+                EditTextTitleParamData password = (EditTextTitleParamData) mWriteEpcCommand.getViewDataArray()[0];
+                EditTextTitleParamData epc = (EditTextTitleParamData) mWriteEpcCommand.getViewDataArray()[1];
                 mUhf.writeEpc(password.getSelected(), GTool.hexStringToByteArray(epc.getSelected()));
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (ErrorParameterException e) {
+                Toaster.showToast(getContext(), e.getMessage(), Toast.LENGTH_LONG);
             }
         });
     }
 
     private void newWriteSelectedEpcCommand() {
         mWriteSelectedEpcCommand = new GeneralCommandItem("Write EPC", null, "Write"
-                , new EditTextTitleParamData("Password", "00000000", "00000000")
                 , new EditTextTitleParamData("Selected EPC", "PC+EPC")
+                , new EditTextTitleParamData("Password", "00000000", "00000000")
                 , new EditTextTitleParamData("EPC to Write", "EPC"));
         mWriteSelectedEpcCommand.setRightOnClickListener(v -> {
             try {
-                EditTextTitleParamData password = (EditTextTitleParamData) mWriteSelectedEpcCommand.getViewDataArray()[0];
-                EditTextTitleParamData selectedEpc = (EditTextTitleParamData) mWriteSelectedEpcCommand.getViewDataArray()[1];
+                EditTextTitleParamData selectedEpc = (EditTextTitleParamData) mWriteSelectedEpcCommand.getViewDataArray()[0];
+                EditTextTitleParamData password = (EditTextTitleParamData) mWriteSelectedEpcCommand.getViewDataArray()[1];
                 EditTextTitleParamData writeData = (EditTextTitleParamData) mWriteSelectedEpcCommand.getViewDataArray()[2];
-                mUhf.writeEpc(password.getSelected(), selectedEpc.getSelected(), GTool.hexStringToByteArray(writeData.getSelected()));
+                mUhf.writeEpc(selectedEpc.getSelected(), password.getSelected(), GTool.hexStringToByteArray(writeData.getSelected()));
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -287,20 +284,20 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
 
     private void newReadTagSelectedEpcCommand() {
         mReadTagWithSelectedEpcCommand = new GeneralCommandItem("Read Tag", null, "Read"
-                , new EditTextTitleParamData("Password", "00000000", "00000000")
                 , new EditTextTitleParamData("Selected Epc", "PC+EPC")
+                , new EditTextTitleParamData("Password", "00000000", "00000000")
                 , new SpinnerTitleParamData<>(new MemoryBank[]{RESERVE_BANK, EPC_BANK, TID_BANK, USER_BANK})
                 , new EditTextTitleParamData("Start Address", "Start with 0", "" + 0)
                 , new EditTextTitleParamData("Read Length", "0 means all", "" + 0)
         );
         mReadTagWithSelectedEpcCommand.setRightOnClickListener(v -> {
-            EditTextTitleParamData password = (EditTextTitleParamData) mReadTagWithSelectedEpcCommand.getViewDataArray()[0];
-            EditTextTitleParamData selectedEpc = (EditTextTitleParamData) mReadTagWithSelectedEpcCommand.getViewDataArray()[1];
+            EditTextTitleParamData selectedEpc = (EditTextTitleParamData) mReadTagWithSelectedEpcCommand.getViewDataArray()[0];
+            EditTextTitleParamData password = (EditTextTitleParamData) mReadTagWithSelectedEpcCommand.getViewDataArray()[1];
             SpinnerTitleParamData memoryBand = (SpinnerTitleParamData) mReadTagWithSelectedEpcCommand.getViewDataArray()[2];
             EditTextTitleParamData startAddress = (EditTextTitleParamData) mReadTagWithSelectedEpcCommand.getViewDataArray()[3];
             EditTextTitleParamData readLength = (EditTextTitleParamData) mReadTagWithSelectedEpcCommand.getViewDataArray()[4];
-            mUhf.readTag(password.getSelected()
-                    , selectedEpc.getSelected()
+            mUhf.readTag(selectedEpc.getSelected()
+                    , password.getSelected()
                     , (MemoryBank) memoryBand.getSelected()
                     , Integer.valueOf(startAddress.getSelected())
                     , Integer.valueOf(readLength.getSelected()));
@@ -328,21 +325,21 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
 
     private void newWriteTagSelectedEpcCommand() {
         mWriteTagWithSelectedEpcCommand = new GeneralCommandItem("Write Tag", null, "Write"
-                , new EditTextTitleParamData("Password", "00000000", "00000000")
                 , new EditTextTitleParamData("Selected Epc", "PC+EPC")
+                , new EditTextTitleParamData("Password", "00000000", "00000000")
                 , new SpinnerTitleParamData<>(new MemoryBank[]{RESERVE_BANK, EPC_BANK, TID_BANK, USER_BANK})
                 , new EditTextTitleParamData("Start Address", "Start from 0", "" + 0)
                 , new EditTextTitleParamData("Write Data", "Data to Write")
         );
         mWriteTagWithSelectedEpcCommand.setRightOnClickListener(v -> {
-            EditTextTitleParamData password = (EditTextTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[0];
-            EditTextTitleParamData selectedEpc = (EditTextTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[1];
+            EditTextTitleParamData selectedEpc = (EditTextTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[0];
+            EditTextTitleParamData password = (EditTextTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[1];
             SpinnerTitleParamData memoryBand = (SpinnerTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[2];
             EditTextTitleParamData startAddress = (EditTextTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[3];
             EditTextTitleParamData writeData = (EditTextTitleParamData) mWriteTagWithSelectedEpcCommand.getViewDataArray()[4];
             try {
-                mUhf.writeTag(password.getSelected()
-                        , selectedEpc.getSelected()
+                mUhf.writeTag(selectedEpc.getSelected()
+                        , password.getSelected()
                         , (MemoryBank) memoryBand.getSelected()
                         , Integer.valueOf(startAddress.getSelected())
                         , GTool.hexStringToByteArray(writeData.getSelected()));

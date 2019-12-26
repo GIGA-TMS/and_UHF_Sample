@@ -12,6 +12,7 @@ import com.gigatms.uhf.GeneralCommandItem;
 import com.gigatms.uhf.paramsData.CheckboxListParamData;
 import com.gigatms.uhf.paramsData.EditTextParamData;
 import com.gigatms.uhf.paramsData.EditTextTitleParamData;
+import com.gigatms.uhf.paramsData.EventTypesParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
 import com.gigatms.uhf.paramsData.SpinnerParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
@@ -26,9 +27,12 @@ import com.gigatms.parameters.State;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
 import com.gigatms.parameters.TriggerType;
+import com.gigatms.parameters.event.BaseTagEvent;
+import com.gigatms.parameters.event.TagPresentedEvent;
 import com.gigatms.tools.GTool;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -41,6 +45,8 @@ import static com.gigatms.parameters.Session.SL;
 
 public class UR0250DeviceControlFragment extends DeviceControlFragment {
     private static final String TAG = UR0250DeviceControlFragment.class.getSimpleName();
+    private final String[] SECOND_CHOICES = {"REMOVE EVENT", "TID BANK", "USER BANK"};
+    private final String[] EVENT_TYPES = {"TAG_PRESENTED_EVENT"};
 
     private GeneralCommandItem mStopInventoryCommand;
     private GeneralCommandItem mInventoryCommand;
@@ -60,7 +66,8 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mTriggerCommand;
     private GeneralCommandItem mIoStateCommand;
     private GeneralCommandItem mScanModeCommand;
-    private GeneralCommandItem mCommandTrigger;
+    private GeneralCommandItem mCommandTriggerCommand;
+    private GeneralCommandItem mEventTypeCommand;
     private GeneralCommandItem mSsidPasswordCommand;
     private GeneralCommandItem mSsidPasswordIpCommand;
 
@@ -252,24 +259,16 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didReadEpc(byte[] epc) {
-                EditTextTitleParamData secondParam = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[1];
-                secondParam.setSelected(GTool.bytesToHexString(epc));
-                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mReadWriteEpcCommand.getPosition()));
-                onUpdateLog(TAG, "didReadEpc: " + GTool.bytesToHexString(epc));
-            }
-
-            @Override
             public void didGetTagPresentedRepeatInterval(int hundredMilliSeconds) {
                 SeekBarParamData selected = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(hundredMilliSeconds);
-                mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition()));
                 if (hundredMilliSeconds == 254) {
                     onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Never");
                 } else if (hundredMilliSeconds == 0) {
                     onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Immediately");
                 } else {
-                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[:" + hundredMilliSeconds + "*100 ms");
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval:" + hundredMilliSeconds + "*100 ms");
                 }
             }
 
@@ -277,7 +276,7 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
             public void didGetTagRemovedThreshold(int inventoryRound) {
                 SeekBarParamData selected = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
                 selected.setSelected(inventoryRound);
-                mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition()));
                 if (inventoryRound == 0) {
                     onUpdateLog(TAG, "didGetTagRemovedThreshold: Immediately");
                 } else {
@@ -289,7 +288,7 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
             public void didGetInventoryRoundInterval(int tenMilliSeconds) {
                 SeekBarParamData selected = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(tenMilliSeconds);
-                mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition()));
                 if (tenMilliSeconds == 0) {
                     onUpdateLog(TAG, "didGetInventoryRoundInterval: Immediately");
                 } else {
@@ -298,10 +297,18 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
+            public void didGetScanMode(ScanMode scanMode) {
+                SpinnerParamData selected1 = (SpinnerParamData) mScanModeCommand.getViewDataArray()[0];
+                selected1.setSelected(scanMode);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mScanModeCommand.getPosition()));
+                onUpdateLog(TAG, "didGetScanMode: " + scanMode.name());
+            }
+
+            @Override
             public void didGetCommandTriggerState(State state) {
-                SpinnerParamData selected = (SpinnerParamData) mCommandTrigger.getViewDataArray()[0];
+                SpinnerParamData selected = (SpinnerParamData) mCommandTriggerCommand.getViewDataArray()[0];
                 selected.setSelected(state);
-                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mCommandTrigger.getPosition()));
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mCommandTriggerCommand.getPosition()));
                 onUpdateLog(TAG, "didGetCommandTriggerState: " + state.name());
             }
 
@@ -311,6 +318,34 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
                 selected.setSelected(activeMode);
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mInventoryActiveMode.getPosition()));
                 onUpdateLog(TAG, "didGetInventoryActiveMode: " + activeMode.name());
+            }
+
+            @Override
+            public void didGetEventType(final BaseTagEvent baseTagEvent) {
+                EventTypesParamData eventType = (EventTypesParamData) mEventTypeCommand.getViewDataArray()[0];
+                StringBuilder stringBuilder = new StringBuilder();
+                if (baseTagEvent instanceof TagPresentedEvent) {
+                    stringBuilder.append(EVENT_TYPES[0]);
+                    eventType.setFirstSelect(EVENT_TYPES[0]);
+                    TagPresentedEvent event = (TagPresentedEvent) baseTagEvent;
+                    Set<String> secondSelected = new HashSet<>();
+                    if (event.hasRemoveEvent()) {
+                        secondSelected.add(SECOND_CHOICES[0]);
+                        stringBuilder.append("\n\t").append(SECOND_CHOICES[0]);
+                    }
+                    if (event.hasTidBank()) {
+                        secondSelected.add(SECOND_CHOICES[1]);
+                        stringBuilder.append("\n\t").append(SECOND_CHOICES[1]);
+                    }
+                    if (event.hasUserBank()) {
+                        secondSelected.add(SECOND_CHOICES[2]);
+                        stringBuilder.append("\n\t").append(SECOND_CHOICES[2]);
+                    }
+                    eventType.setLastSelect(secondSelected);
+                }
+
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mEventTypeCommand.getPosition()));
+                onUpdateLog(TAG, "didGetEventType: " + stringBuilder.toString());
             }
         };
     }
@@ -328,7 +363,8 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         newUr0250TriggerCommand();
         newUr0250IoStateCommand();
         newScanModeCommand();
-        newCommandTrigger();
+        newCommandTriggerCommand();
+        newEventTypeCommand();
         newSsidPasswordCommand();
         newSsidPasswordIpCommand();
     }
@@ -360,8 +396,9 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         }
         mAdapter.add(mTriggerCommand);
         mAdapter.add(mScanModeCommand);
-        mAdapter.add(mCommandTrigger);
+        mAdapter.add(mCommandTriggerCommand);
         mAdapter.add(mIoStateCommand);
+        mAdapter.add(mEventTypeCommand);
         if (!mUhf.getCommunicationType().equals(CommunicationType.TCP)) {
             mAdapter.add(mSsidPasswordCommand);
             mAdapter.add(mSsidPasswordIpCommand);
@@ -397,10 +434,10 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
 
     private void newInventoryActiveModeCommand() {
         mInventoryActiveMode = new GeneralCommandItem("Inventory Active Mode", "Get", "Set", new SpinnerParamData<>(new ActiveMode[]{READ, COMMAND}));
-        mInventoryActiveMode.setLeftOnClickListener(v -> mUhf.getInventoryActiveMode());
+        mInventoryActiveMode.setLeftOnClickListener(v -> ((UR0250) mUhf).getInventoryActiveMode(true));
         mInventoryActiveMode.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];
-            mUhf.setInventoryActiveMode((ActiveMode) viewData.getSelected());
+            ((UR0250) mUhf).setInventoryActiveMode(true, (ActiveMode) viewData.getSelected());
         });
     }
 
@@ -457,10 +494,10 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
     private void newTagPresentedEventThresholdCommand() {
         mTagPresentedRepeatIntervalCommand = new GeneralCommandItem("Get/Set Tag Presented Repeat Interval"
                 , new SeekBarParamData(0, 255));
-        mTagPresentedRepeatIntervalCommand.setLeftOnClickListener(v -> mUhf.getTagPresentedRepeatInterval(mTemp));
+        mTagPresentedRepeatIntervalCommand.setLeftOnClickListener(v -> ((UR0250) mUhf).getTagPresentedRepeatInterval(mTemp));
         mTagPresentedRepeatIntervalCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
-            mUhf.setTagPresentedRepeatInterval(mTemp, viewData.getSelected());
+            ((UR0250) mUhf).setTagPresentedRepeatInterval(mTemp, viewData.getSelected());
         });
     }
 
@@ -491,9 +528,7 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
                         }
                     }
                     mUhf.setFrequency(mTemp, frequencyList);
-                } catch (NumberFormatException e) {
-                    e.printStackTrace();
-                } catch (NullPointerException e) {
+                } catch (NumberFormatException | NullPointerException e) {
                     e.printStackTrace();
                 }
             }
@@ -565,13 +600,13 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         mScanModeCommand.setLeftOnClickListener(v -> ((UR0250) mUhf).getScanMode(mTemp));
     }
 
-    private void newCommandTrigger() {
-        mCommandTrigger = new GeneralCommandItem("Get/Set Command Trigger", new SpinnerParamData<>(State.class));
-        mCommandTrigger.setRightOnClickListener(v -> {
-            SpinnerParamData state = (SpinnerParamData) mCommandTrigger.getViewDataArray()[0];
+    private void newCommandTriggerCommand() {
+        mCommandTriggerCommand = new GeneralCommandItem("Get/Set Command Trigger", new SpinnerParamData<>(State.class));
+        mCommandTriggerCommand.setRightOnClickListener(v -> {
+            SpinnerParamData state = (SpinnerParamData) mCommandTriggerCommand.getViewDataArray()[0];
             ((UR0250) mUhf).setCommandTriggerState((State) state.getSelected());
         });
-        mCommandTrigger.setLeftOnClickListener(v -> ((UR0250) mUhf).getCommandTriggerState());
+        mCommandTriggerCommand.setLeftOnClickListener(v -> ((UR0250) mUhf).getCommandTriggerState());
     }
 
 
@@ -601,6 +636,32 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
             EditTextTitleParamData gateway = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[3];
             EditTextTitleParamData subnetMask = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[4];
             ((UR0250) mUhf).setWifiSettings(ssid.getSelected(), password.getSelected(), ip.getSelected(), gateway.getSelected(), subnetMask.getSelected());
+        });
+    }
+
+    private void newEventTypeCommand() {
+        EventTypesParamData mEventTypeParamData = new EventTypesParamData(
+                EVENT_TYPES, null
+                , SECOND_CHOICES);
+        mEventTypeCommand = new GeneralCommandItem("Get/Set Event Type"
+                , mEventTypeParamData);
+        mEventTypeCommand.setLeftOnClickListener(v -> ((UR0250) mUhf).getEventType(mTemp));
+        mEventTypeCommand.setRightOnClickListener(v -> {
+            EventTypesParamData event = (EventTypesParamData) mEventTypeCommand.getViewDataArray()[0];
+            String eventType = event.getFirstSelect();
+            if (eventType.equals(EVENT_TYPES[0])) {
+                TagPresentedEvent.Builder builder = new TagPresentedEvent.Builder();
+                if (event.getLastSelect().contains(SECOND_CHOICES[0])) {
+                    builder.setRemoveEvent(true);
+                }
+                if (event.getLastSelect().contains(SECOND_CHOICES[1])) {
+                    builder.setTidBank(true);
+                }
+                if (event.getLastSelect().contains(SECOND_CHOICES[2])) {
+                    builder.setUserBank(true);
+                }
+                ((UR0250) mUhf).setEventType(mTemp, builder.build());
+            }
         });
     }
 }

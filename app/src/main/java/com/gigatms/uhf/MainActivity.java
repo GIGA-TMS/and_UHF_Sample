@@ -1,10 +1,10 @@
 package com.gigatms.uhf;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -64,12 +64,6 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
     }
 
     @Override
-    public void onConfigurationChanged(final Configuration newConfig) {
-        // Ignore orientation change to keep activity from restarting
-        super.onConfigurationChanged(newConfig);
-    }
-
-    @Override
     protected void onResume() {
         super.onResume();
         Log.d(TAG, "onResume");
@@ -89,7 +83,7 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
             String version = packageInfo.versionName;
             int verCode = packageInfo.versionCode;
             TextView txtVersion = findViewById(R.id.tv_version);
-            version = "APP v" + version + " " + verCode
+            version = "APP v" + version + "-b" + verCode
                     + ", SDK v" + BaseDevice.VERSION;
             txtVersion.setText(version);
         } catch (PackageManager.NameNotFoundException e) {
@@ -137,6 +131,7 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
         DebugFragment.setDebugListener(this);
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private void setTbLogView() {
         final GestureDetectorCompat gestureDetector = new GestureDetectorCompat(this, new GestureDetector.SimpleOnGestureListener() {
             @Override

@@ -9,7 +9,7 @@ import com.gigatms.UHFCallback;
 import com.gigatms.uhf.DeviceControlFragment;
 import com.gigatms.uhf.GeneralCommandItem;
 import com.gigatms.uhf.paramsData.EditTextParamData;
-import com.gigatms.uhf.paramsData.EditTextTitleParamData;
+import com.gigatms.uhf.paramsData.EventTypesParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
 import com.gigatms.uhf.paramsData.SpinnerParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
@@ -25,10 +25,13 @@ import com.gigatms.parameters.Session;
 import com.gigatms.parameters.State;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
-import com.gigatms.parameters.TextTagEventType;
+import com.gigatms.parameters.event.BaseTagEvent;
+import com.gigatms.parameters.event.TagPresentedEvent;
+import com.gigatms.parameters.event.TextTagEvent;
 import com.gigatms.tools.GTool;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -38,9 +41,17 @@ import java.util.regex.Pattern;
 import static com.gigatms.parameters.ActiveMode.COMMAND;
 import static com.gigatms.parameters.ActiveMode.READ;
 import static com.gigatms.parameters.Session.SL;
+import static com.gigatms.parameters.event.TextTagEvent.BaseTextEventFormat.EPC;
+import static com.gigatms.parameters.event.TextTagEvent.BaseTextEventFormat.NONE;
+import static com.gigatms.parameters.event.TextTagEvent.BaseTextEventFormat.PC_EPC;
+import static com.gigatms.parameters.event.TextTagEvent.BaseTextEventFormat.PC_EPC_WITH_REMOVE_EVENT;
 
 public class NR800DeviceControlFragment extends DeviceControlFragment {
     private static final String TAG = NR800DeviceControlFragment.class.getSimpleName();
+    private final String[] TAG_EVENT_FORMAT = {"REMOVE EVENT", "TID BANK"};
+    private final String[] ADDITION_TEXT_TAG_EVENT_FORMAT_CHOICE = {"TID BANK"};
+    private final String[] BASE_TEXT_TAG_EVENT_FORMAT_CHOICE = new String[]{NONE.name(), EPC.name(), PC_EPC.name(), PC_EPC_WITH_REMOVE_EVENT.name()};
+    private final String[] EVENT_TYPES = {"TAG_PRESENTED_EVENT", "TEXT_TAG_EVENT"};
 
     private GeneralCommandItem mStopInventoryCommand;
     private GeneralCommandItem mStartInventoryCommand;
@@ -64,7 +75,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mControlBuzzerCommand;
     private GeneralCommandItem mTagEventIntervalCommand;
     private GeneralCommandItem mVibratorStateCommand;
-    private GeneralCommandItem mTextTagEventTypeCommand;
+    private GeneralCommandItem mEventTypeCommand;
 
     public static NR800DeviceControlFragment newFragment(String devMacAddress) {
         Bundle args = new Bundle();
@@ -243,24 +254,16 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didReadEpc(byte[] epc) {
-                EditTextTitleParamData secondParam = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[1];
-                secondParam.setSelected(GTool.bytesToHexString(epc));
-                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mReadWriteEpcCommand.getPosition()));
-                onUpdateLog(TAG, "didReadEpc: " + GTool.bytesToHexString(epc));
-            }
-
-            @Override
             public void didGetTagPresentedRepeatInterval(int hundredMilliSeconds) {
                 SeekBarParamData selected = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(hundredMilliSeconds);
-                mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition()));
                 if (hundredMilliSeconds == 254) {
                     onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Never");
                 } else if (hundredMilliSeconds == 0) {
                     onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Immediately");
                 } else {
-                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[:" + hundredMilliSeconds + "*100 ms");
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval:" + hundredMilliSeconds + "*100 ms");
                 }
             }
 
@@ -268,7 +271,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
             public void didGetTagRemovedThreshold(int inventoryRound) {
                 SeekBarParamData selected = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
                 selected.setSelected(inventoryRound);
-                mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition()));
                 if (inventoryRound == 0) {
                     onUpdateLog(TAG, "didGetTagRemovedThreshold: Immediately");
                 } else {
@@ -280,7 +283,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
             public void didGetInventoryRoundInterval(int tenMilliSeconds) {
                 SeekBarParamData selected = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(tenMilliSeconds);
-                mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition()));
                 if (tenMilliSeconds == 0) {
                     onUpdateLog(TAG, "didGetInventoryRoundInterval: Immediately");
                 } else {
@@ -323,9 +326,9 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
             @Override
             public void didGetTidDelimiter(Character character) {
                 EditTextParamData tidDelimiter = (EditTextParamData) mTidDelimiterCommand.getViewDataArray()[0];
-                tidDelimiter.setSelected(character.toString());
+                tidDelimiter.setSelected(character == null ? "" : character.toString());
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTidDelimiterCommand.getPosition()));
-                onUpdateLog(TAG, "didGetTidDelimiter: " + character);
+                onUpdateLog(TAG, "didGetTidDelimiter: " + (character == null ? "" : character));
             }
 
             @Override
@@ -337,19 +340,50 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didGetTextTagEventType(TextTagEventType textTagEventType) {
-                SpinnerParamData textTagEventView = (SpinnerParamData) mTextTagEventTypeCommand.getViewDataArray()[0];
-                textTagEventView.setSelected(textTagEventType);
-                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTextTagEventTypeCommand.getPosition()));
-                onUpdateLog(TAG, "didGetTextTagEventType: " + textTagEventType.name());
-            }
-
-            @Override
             public void didGetInventoryActiveMode(ActiveMode activeMode) {
                 SpinnerParamData selected = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];
                 selected.setSelected(activeMode);
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mInventoryActiveMode.getPosition()));
                 onUpdateLog(TAG, "didGetInventoryActiveMode: " + activeMode.name());
+            }
+
+            @Override
+            public void didGetEventType(BaseTagEvent baseTagEvent) {
+                EventTypesParamData eventType = (EventTypesParamData) mEventTypeCommand.getViewDataArray()[0];
+                StringBuilder stringBuilder = new StringBuilder();
+                if (baseTagEvent instanceof TagPresentedEvent) {
+                    stringBuilder.append(EVENT_TYPES[0]);
+                    eventType.setFirstSelect(EVENT_TYPES[0]);
+                    eventType.setMiddleChoices(null);
+                    eventType.setLastChoices(TAG_EVENT_FORMAT);
+                    TagPresentedEvent event = (TagPresentedEvent) baseTagEvent;
+                    Set<String> tagEventFormat = new HashSet<>();
+                    if (event.hasRemoveEvent()) {
+                        tagEventFormat.add(TAG_EVENT_FORMAT[0]);
+                        stringBuilder.append("\n\t").append(TAG_EVENT_FORMAT[0]);
+                    }
+                    if (event.hasTidBank()) {
+                        tagEventFormat.add(TAG_EVENT_FORMAT[1]);
+                        stringBuilder.append("\n\t").append(TAG_EVENT_FORMAT[1]);
+                    }
+                    eventType.setLastSelect(tagEventFormat);
+                } else if (baseTagEvent instanceof TextTagEvent) {
+                    TextTagEvent event = (TextTagEvent) baseTagEvent;
+                    stringBuilder.append(EVENT_TYPES[1]);
+                    eventType.setFirstSelect(EVENT_TYPES[1]);
+
+                    eventType.setMiddleChoices(BASE_TEXT_TAG_EVENT_FORMAT_CHOICE);
+                    eventType.setMiddleSelect(event.getBaseTextEventFormat().name());
+
+                    eventType.setLastChoices(ADDITION_TEXT_TAG_EVENT_FORMAT_CHOICE);
+                    Set<String> textTagEventFormat = new HashSet<>();
+                    if (event.hasTidBank()) {
+                        textTagEventFormat.add(ADDITION_TEXT_TAG_EVENT_FORMAT_CHOICE[0]);
+                    }
+                    eventType.setLastSelect(textTagEventFormat);
+                }
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mEventTypeCommand.getPosition()));
+                onUpdateLog(TAG, "didGetEventType: " + stringBuilder.toString());
             }
         };
 
@@ -372,7 +406,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
         newControlBuzzerCommand();
         newVibratorStateCommand();
         newTagEventIntervalCommand();
-        newTextTagEventTypeCommand();
+        newEventTypeCommand();
     }
 
     @Override
@@ -405,7 +439,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mControlBuzzerCommand);
         mAdapter.add(mVibratorStateCommand);
         mAdapter.add(mTagEventIntervalCommand);
-        mAdapter.add(mTextTagEventTypeCommand);
+        mAdapter.add(mEventTypeCommand);
     }
 
     @Override
@@ -437,10 +471,10 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
 
     private void newInventoryActiveModeCommand() {
         mInventoryActiveMode = new GeneralCommandItem("Inventory Active Mode", "Get", "Set", new SpinnerParamData<>(new ActiveMode[]{READ, COMMAND}));
-        mInventoryActiveMode.setLeftOnClickListener(v -> mUhf.getInventoryActiveMode());
+        mInventoryActiveMode.setLeftOnClickListener(v -> ((NR800) mUhf).getInventoryActiveMode(true));
         mInventoryActiveMode.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];
-            mUhf.setInventoryActiveMode((ActiveMode) viewData.getSelected());
+            ((NR800) mUhf).setInventoryActiveMode(true, (ActiveMode) viewData.getSelected());
         });
     }
 
@@ -469,7 +503,11 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
                 , new EditTextParamData("TID Delimiter"));
         mTidDelimiterCommand.setRightOnClickListener(v -> {
             EditTextParamData prefix = (EditTextParamData) mTidDelimiterCommand.getViewDataArray()[0];
-            ((NR800) mUhf).setTidDelimiter(prefix.getSelected().charAt(0));
+            if (prefix.getSelected() != null && prefix.getSelected().length() != 0) {
+                ((NR800) mUhf).setTidDelimiter(prefix.getSelected().charAt(0));
+            } else {
+                ((NR800) mUhf).setTidDelimiter(null);
+            }
         });
         mTidDelimiterCommand.setLeftOnClickListener(v -> ((NR800) mUhf).getTidDelimiter());
     }
@@ -487,9 +525,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
     private void newBuzzerOperationCommand() {
         mBuzzerOperationCommand = new GeneralCommandItem("Get/Set BuzzerAdapter Operation"
                 , new SpinnerParamData<>(new BuzzerOperationMode[]{BuzzerOperationMode.OFF, BuzzerOperationMode.REPEAT}));
-        mBuzzerOperationCommand.setLeftOnClickListener(v -> {
-            ((NR800) mUhf).getBuzzerOperationMode(mTemp);
-        });
+        mBuzzerOperationCommand.setLeftOnClickListener(v -> ((NR800) mUhf).getBuzzerOperationMode(mTemp));
         mBuzzerOperationCommand.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mBuzzerOperationCommand.getViewDataArray()[0];
             ((NR800) mUhf).setBuzzerOperationMode(mTemp, (BuzzerOperationMode) viewData.getSelected());
@@ -508,9 +544,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
     private void newVibratorStateCommand() {
         mVibratorStateCommand = new GeneralCommandItem("Get/Set Vibrator State"
                 , new SpinnerParamData<>(State.class));
-        mVibratorStateCommand.setLeftOnClickListener(v -> {
-            ((NR800) mUhf).getVibratorState(mTemp);
-        });
+        mVibratorStateCommand.setLeftOnClickListener(v -> ((NR800) mUhf).getVibratorState(mTemp));
         mVibratorStateCommand.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mVibratorStateCommand.getViewDataArray()[0];
             ((NR800) mUhf).setVibratorState(mTemp, (State) viewData.getSelected());
@@ -527,13 +561,44 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
         });
     }
 
-    private void newTextTagEventTypeCommand() {
-        mTextTagEventTypeCommand = new GeneralCommandItem("Get/Set Text Tag Event Type"
-                , new SpinnerParamData<>(TextTagEventType.class));
-        mTextTagEventTypeCommand.setLeftOnClickListener(view -> ((NR800) mUhf).getTextTagEventType(mTemp));
-        mTextTagEventTypeCommand.setRightOnClickListener(view -> {
-            SpinnerParamData textTagEventType = (SpinnerParamData) mTextTagEventTypeCommand.getViewDataArray()[0];
-            ((NR800) mUhf).setTextTagEventType(mTemp, (TextTagEventType) textTagEventType.getSelected());
+    private void newEventTypeCommand() {
+        EventTypesParamData mEventTypeParamData = new EventTypesParamData(
+                EVENT_TYPES, null
+                , TAG_EVENT_FORMAT);
+        mEventTypeCommand = new GeneralCommandItem("Get/Set Event Type"
+                , mEventTypeParamData);
+        mEventTypeParamData.setOnFirstItemSelected(selected -> {
+            if (selected.equals(EVENT_TYPES[0])) {
+                mEventTypeParamData.setMiddleChoices(null);
+                mEventTypeParamData.setLastChoices(TAG_EVENT_FORMAT);
+                mEventTypeParamData.getLastSelect().clear();
+            } else if (selected.equals(EVENT_TYPES[1])) {
+                mEventTypeParamData.setMiddleChoices(BASE_TEXT_TAG_EVENT_FORMAT_CHOICE);
+                mEventTypeParamData.setLastChoices(ADDITION_TEXT_TAG_EVENT_FORMAT_CHOICE);
+                mEventTypeParamData.getLastSelect().clear();
+            }
+            mAdapter.notifyItemChanged(mEventTypeCommand.getPosition());
+        });
+        mEventTypeCommand.setLeftOnClickListener(v -> ((NR800) mUhf).getEventType(mTemp));
+        mEventTypeCommand.setRightOnClickListener(v -> {
+            EventTypesParamData event = (EventTypesParamData) mEventTypeCommand.getViewDataArray()[0];
+            String eventType = event.getFirstSelect();
+            if (eventType.equals(EVENT_TYPES[0])) {
+                TagPresentedEvent.Builder builder = new TagPresentedEvent.Builder();
+                if (event.getLastSelect().contains(TAG_EVENT_FORMAT[0])) {
+                    builder.setRemoveEvent(true);
+                }
+                if (event.getLastSelect().contains(TAG_EVENT_FORMAT[1])) {
+                    builder.setTidBank(true);
+                }
+                ((NR800) mUhf).setEventType(mTemp, builder.build());
+            } else if (eventType.equals(EVENT_TYPES[1])) {
+                TextTagEvent.Builder builder = new TextTagEvent.Builder(TextTagEvent.BaseTextEventFormat.valueOf(event.getMiddleSelect()));
+                if (event.getLastSelect().contains(ADDITION_TEXT_TAG_EVENT_FORMAT_CHOICE[0])) {
+                    builder.setTidBank(true);
+                }
+                ((NR800) mUhf).setEventType(mTemp, builder.build());
+            }
         });
     }
 
@@ -550,10 +615,10 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
     private void newTagPresentedEventThresholdCommand() {
         mTagPresentedRepeatIntervalCommand = new GeneralCommandItem("Get/Set Tag Presented Repeat Interval"
                 , new SeekBarParamData(0, 254));
-        mTagPresentedRepeatIntervalCommand.setLeftOnClickListener(v -> mUhf.getTagPresentedRepeatInterval(mTemp));
+        mTagPresentedRepeatIntervalCommand.setLeftOnClickListener(v -> ((NR800) mUhf).getTagPresentedRepeatInterval(mTemp));
         mTagPresentedRepeatIntervalCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
-            mUhf.setTagPresentedRepeatInterval(mTemp, viewData.getSelected());
+            ((NR800) mUhf).setTagPresentedRepeatInterval(mTemp, viewData.getSelected());
         });
     }
 
@@ -584,9 +649,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
                         }
                     }
                     mUhf.setFrequency(mTemp, frequencyList);
-                } catch (NumberFormatException e) {
-                    e.printStackTrace();
-                } catch (NullPointerException e) {
+                } catch (NumberFormatException | NullPointerException e) {
                     e.printStackTrace();
                 }
             }

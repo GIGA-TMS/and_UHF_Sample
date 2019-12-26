@@ -10,12 +10,11 @@ import com.gigatms.uhf.DeviceControlFragment;
 import com.gigatms.uhf.GeneralCommandItem;
 import com.gigatms.uhf.paramsData.CheckboxListParamData;
 import com.gigatms.uhf.paramsData.EditTextParamData;
-import com.gigatms.uhf.paramsData.EditTextTitleParamData;
+import com.gigatms.uhf.paramsData.EventTypesParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
 import com.gigatms.uhf.paramsData.SpinnerParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
 import com.gigatms.parameters.ActiveMode;
-import com.gigatms.parameters.EventType;
 import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
 import com.gigatms.parameters.KeyboardSimulation;
@@ -28,10 +27,14 @@ import com.gigatms.parameters.Session;
 import com.gigatms.parameters.TagDataEncodeType;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
+import com.gigatms.parameters.event.BaseTagEvent;
+import com.gigatms.parameters.event.TagPresentedEvent;
+import com.gigatms.parameters.event.TagPresentedEventEx;
 import com.gigatms.tools.GTool;
 
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -40,11 +43,18 @@ import java.util.regex.Pattern;
 
 import static com.gigatms.parameters.KeyboardSimulation.DISABLE;
 import static com.gigatms.parameters.KeyboardSimulation.HID_KEYBOARD;
+import static com.gigatms.parameters.MemoryBankSelection.EPC_ASCII;
 import static com.gigatms.parameters.OutputInterface.HID_N_VCOM;
 import static com.gigatms.parameters.Session.SL;
+import static com.gigatms.parameters.TagDataEncodeType.EAN_UPC;
+import static com.gigatms.parameters.TagDataEncodeType.EAN_UPC_EAS;
+import static com.gigatms.parameters.TagDataEncodeType.RAW_DATA;
+import static com.gigatms.parameters.TagDataEncodeType.UDC;
 
 public class MU400HDeviceControlFragment extends DeviceControlFragment {
     private static final String TAG = MU400HDeviceControlFragment.class.getSimpleName();
+    private final String[] SECOND_CHOICES = {"REMOVE EVENT", "TID BANK"};
+    private final String[] EVENT_TYPES = {"TAG_PRESENTED_EVENT", "TAG_PRESENTED_EVENT_EX"};
 
     private GeneralCommandItem mStopInventoryCommand;
     private GeneralCommandItem mInventoryCommand;
@@ -182,11 +192,31 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didGetEventType(final EventType eventType) {
-                SpinnerParamData selected = (SpinnerParamData) mEventTypeCommand.getViewDataArray()[0];
-                selected.setSelected(eventType);
+            public void didGetEventType(final BaseTagEvent baseTagEvent) {
+                EventTypesParamData eventType = (EventTypesParamData) mEventTypeCommand.getViewDataArray()[0];
+                StringBuilder stringBuilder = new StringBuilder();
+                if (baseTagEvent instanceof TagPresentedEvent) {
+                    stringBuilder.append(EVENT_TYPES[0]);
+                    eventType.setFirstSelect(EVENT_TYPES[0]);
+                    TagPresentedEvent event = (TagPresentedEvent) baseTagEvent;
+                    Set<String> secondSelected = new HashSet<>();
+                    if (event.hasRemoveEvent()) {
+                        secondSelected.add(SECOND_CHOICES[0]);
+                        stringBuilder.append("\n\t").append(SECOND_CHOICES[0]);
+                    }
+                    if (event.hasTidBank()) {
+                        secondSelected.add(SECOND_CHOICES[1]);
+                        stringBuilder.append("\n\t").append(SECOND_CHOICES[1]);
+                    }
+                    eventType.setLastSelect(secondSelected);
+                } else if (baseTagEvent instanceof TagPresentedEventEx) {
+                    stringBuilder.append(EVENT_TYPES[1]);
+                    eventType.setFirstSelect(EVENT_TYPES[1]);
+                    eventType.setLastSelect(new HashSet<>());
+                }
+
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mEventTypeCommand.getPosition()));
-                onUpdateLog(TAG, "didGetEventType: " + eventType.name());
+                onUpdateLog(TAG, "didGetEventType: " + stringBuilder.toString());
             }
 
             @Override
@@ -244,27 +274,19 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didReadEpc(byte[] epc) {
-                EditTextTitleParamData secondParam = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[1];
-                secondParam.setSelected(GTool.bytesToHexString(epc));
-                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mReadWriteEpcCommand.getPosition()));
-                onUpdateLog(TAG, "didReadEpc: " + GTool.bytesToHexString(epc));
-            }
-
-            @Override
-            public void didGetPostDataDelimiter(PostDataDelimiter postDataDelimiter) {
-                SpinnerParamData selected1 = (SpinnerParamData) mPostDataDelimiterCommand.getViewDataArray()[0];
+            public void didGetPostDataDelimiter(Set<PostDataDelimiter> postDataDelimiter) {
+                CheckboxListParamData selected1 = (CheckboxListParamData) mPostDataDelimiterCommand.getViewDataArray()[0];
                 selected1.setSelected(postDataDelimiter);
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mPostDataDelimiterCommand.getPosition()));
                 onUpdateLog(TAG, "didGetPostDataDelimiter: " + postDataDelimiter);
             }
 
             @Override
-            public void didGetMemoryBankSelection(MemoryBankSelection memoryBankSelection) {
-                SpinnerParamData selected1 = (SpinnerParamData) mMemoryBankSelectionCommand.getViewDataArray()[0];
-                selected1.setSelected(memoryBankSelection);
+            public void didGetMemoryBankSelection(Set<MemoryBankSelection> memoryBankSelections) {
+                CheckboxListParamData selected1 = (CheckboxListParamData) mMemoryBankSelectionCommand.getViewDataArray()[0];
+                selected1.setSelected(memoryBankSelections);
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mMemoryBankSelectionCommand.getPosition()));
-                onUpdateLog(TAG, "didGetMemoryBankSelection: " + memoryBankSelection);
+                onUpdateLog(TAG, "didGetMemoryBankSelection: " + memoryBankSelections);
             }
 
             @Override
@@ -279,13 +301,13 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
             public void didGetTagPresentedRepeatInterval(int hundredMilliSeconds) {
                 SeekBarParamData selected = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(hundredMilliSeconds);
-                mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition()));
                 if (hundredMilliSeconds == 254) {
                     onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Never");
                 } else if (hundredMilliSeconds == 0) {
                     onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Immediately");
                 } else {
-                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[:" + hundredMilliSeconds + "*100 ms");
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval:" + hundredMilliSeconds + "*100 ms");
                 }
             }
 
@@ -293,7 +315,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
             public void didGetTagRemovedThreshold(int inventoryRound) {
                 SeekBarParamData selected = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
                 selected.setSelected(inventoryRound);
-                mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition()));
                 if (inventoryRound == 0) {
                     onUpdateLog(TAG, "didGetTagRemovedThreshold: Immediately");
                 } else {
@@ -305,7 +327,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
             public void didGetInventoryRoundInterval(int tenMilliSeconds) {
                 SeekBarParamData selected = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(tenMilliSeconds);
-                mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition()));
                 if (tenMilliSeconds == 0) {
                     onUpdateLog(TAG, "didGetInventoryRoundInterval: Immediately");
                 } else {
@@ -403,7 +425,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
 
     private void newStartInventoryCommandEx() {
         mInventoryExCommand = new GeneralCommandItem("Start Inventory Ex", null, "Start Ex"
-                , new CheckboxListParamData<>(TagDataEncodeType.class));
+                , new CheckboxListParamData<>(EnumSet.of(UDC, EAN_UPC_EAS, EAN_UPC, RAW_DATA)));
         mInventoryExCommand.setRightOnClickListener(v -> {
             CheckboxListParamData viewData = (CheckboxListParamData) mInventoryExCommand.getViewDataArray()[0];
             ((MU400H) mUhf).startInventoryEx(viewData.getSelected());
@@ -430,28 +452,49 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
                 ActiveMode.DEACTIVATE_USER_BANK,
                 ActiveMode.REACTIVATE_USER_BANK,
         }));
-        mInventoryActiveMode.setLeftOnClickListener(v -> mUhf.getInventoryActiveMode());
+        mInventoryActiveMode.setLeftOnClickListener(v -> ((MU400H) mUhf).getInventoryActiveMode(true));
         mInventoryActiveMode.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];
-            mUhf.setInventoryActiveMode((ActiveMode) viewData.getSelected());
+            ((MU400H) mUhf).setInventoryActiveMode(true, (ActiveMode) viewData.getSelected());
         });
     }
 
     private void newEventTypeCommand() {
+        EventTypesParamData mEventTypeParamData = new EventTypesParamData(
+                EVENT_TYPES, null
+                , SECOND_CHOICES);
         mEventTypeCommand = new GeneralCommandItem("Get/Set Event Type"
-                , new SpinnerParamData<>(EventType.class));
-        mEventTypeCommand.setLeftOnClickListener(v -> {
-            ((MU400H) mUhf).getEventType(mTemp);
+                , mEventTypeParamData);
+        mEventTypeParamData.setOnFirstItemSelected(selected -> {
+            if (selected.equals(EVENT_TYPES[0])) {
+                mEventTypeParamData.setLastChoices(SECOND_CHOICES);
+            } else if (selected.equals(EVENT_TYPES[1])) {
+                mEventTypeParamData.setLastChoices(new String[0]);
+            }
+            mAdapter.notifyItemChanged(mEventTypeCommand.getPosition());
         });
+        mEventTypeCommand.setLeftOnClickListener(v -> ((MU400H) mUhf).getEventType(mTemp));
         mEventTypeCommand.setRightOnClickListener(v -> {
-            SpinnerParamData viewData = (SpinnerParamData) mEventTypeCommand.getViewDataArray()[0];
-            ((MU400H) mUhf).setEventType(mTemp, (EventType) viewData.getSelected());
+            EventTypesParamData event = (EventTypesParamData) mEventTypeCommand.getViewDataArray()[0];
+            String eventType = event.getFirstSelect();
+            if (eventType.equals(EVENT_TYPES[0])) {
+                TagPresentedEvent.Builder builder = new TagPresentedEvent.Builder();
+                if (event.getLastSelect().contains(SECOND_CHOICES[0])) {
+                    builder.setRemoveEvent(true);
+                }
+                if (event.getLastSelect().contains(SECOND_CHOICES[1])) {
+                    builder.setTidBank(true);
+                }
+                ((MU400H) mUhf).setEventType(mTemp, builder.build());
+            } else if (eventType.equals(EVENT_TYPES[1])) {
+                ((MU400H) mUhf).setEventType(mTemp, new TagPresentedEventEx());
+            }
         });
     }
 
     private void newEnableFilterCommand() {
         mFilterCommand = new GeneralCommandItem("Get/Set Filter",
-                new CheckboxListParamData<>(TagDataEncodeType.class));
+                new CheckboxListParamData<>(EnumSet.of(UDC, EAN_UPC_EAS, EAN_UPC, RAW_DATA)));
         mFilterCommand.setRightOnClickListener(v -> {
             CheckboxListParamData viewData = (CheckboxListParamData) mFilterCommand.getViewDataArray()[0];
             ((MU400H) mUhf).setFilter(mTemp, viewData.getSelected());
@@ -463,24 +506,22 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
 
     private void newPostDataDelimiterCommand() {
         mPostDataDelimiterCommand = new GeneralCommandItem("Get/Set Post Data Delimiter"
-                , new SpinnerParamData<>(PostDataDelimiter.class));
+                , new CheckboxListParamData<>(PostDataDelimiter.class));
         mPostDataDelimiterCommand.setLeftOnClickListener(v -> ((MU400H) mUhf).getPostDataDelimiter(mTemp));
         mPostDataDelimiterCommand.setRightOnClickListener(v -> {
-            SpinnerParamData viewData = (SpinnerParamData) mPostDataDelimiterCommand.getViewDataArray()[0];
-            ((MU400H) mUhf).setPostDataDelimiter(mTemp, (PostDataDelimiter) viewData.getSelected());
+            CheckboxListParamData viewData = (CheckboxListParamData) mPostDataDelimiterCommand.getViewDataArray()[0];
+            ((MU400H) mUhf).setPostDataDelimiter(mTemp, viewData.getSelected());
         });
     }
 
     private void newMemoryBankSelectionCommand() {
         mMemoryBankSelectionCommand = new GeneralCommandItem("Get/Set Memory Bank Selection"
-                , new SpinnerParamData<>(MemoryBankSelection.class));
-        mMemoryBankSelectionCommand.setLeftOnClickListener(v -> {
-            ((MU400H) mUhf).getMemoryBankSelection(mTemp);
-        });
+                , new CheckboxListParamData<>(EnumSet.range(MemoryBankSelection.PC, EPC_ASCII)));
+        mMemoryBankSelectionCommand.setLeftOnClickListener(v -> ((MU400H) mUhf).getMemoryBankSelection(mTemp));
 
         mMemoryBankSelectionCommand.setRightOnClickListener(v -> {
-            SpinnerParamData viewData = (SpinnerParamData) mMemoryBankSelectionCommand.getViewDataArray()[0];
-            ((MU400H) mUhf).setMemoryBankSelection(mTemp, (MemoryBankSelection) viewData.getSelected());
+            CheckboxListParamData viewData = (CheckboxListParamData) mMemoryBankSelectionCommand.getViewDataArray()[0];
+            ((MU400H) mUhf).setMemoryBankSelection(mTemp, viewData.getSelected());
         });
     }
 
@@ -511,10 +552,10 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
     private void newTagPresentedEventThresholdCommand() {
         mTagPresentedRepeatIntervalCommand = new GeneralCommandItem("Get/Set Tag Presented Repeat Interval"
                 , new SeekBarParamData(0, 254));
-        mTagPresentedRepeatIntervalCommand.setLeftOnClickListener(v -> mUhf.getTagPresentedRepeatInterval(mTemp));
+        mTagPresentedRepeatIntervalCommand.setLeftOnClickListener(v -> ((MU400H) mUhf).getTagPresentedRepeatInterval(mTemp));
         mTagPresentedRepeatIntervalCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
-            mUhf.setTagPresentedRepeatInterval(mTemp, viewData.getSelected());
+            ((MU400H) mUhf).setTagPresentedRepeatInterval(mTemp, viewData.getSelected());
         });
     }
 

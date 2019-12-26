@@ -87,9 +87,9 @@ public class DeviceScanFragment extends BaseScanFragment {
 
     @Override
     public void hookAddSpnProducts() {
-        addSpnProducts(new String[]{TS100.name(), TS800.name(), MU400H.name(), UR0250.name(), NR800.name(), PWD100.name()});
+        addSpnProducts(new String[]{TS800.name(), TS100.name(), MU400H.name(), UR0250.name(), NR800.name(), PWD100.name()});
         mSpnProduct.setSelection(0);
-        ((UHFScanner) mBaseScanner).setClassVersion(UhfClassVersion.TS100);
+        ((UHFScanner) mBaseScanner).setClassVersion(UhfClassVersion.TS800);
     }
 
     @Override
@@ -126,7 +126,7 @@ public class DeviceScanFragment extends BaseScanFragment {
         super.onStart();
         GLog.d(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
         mSpnProduct.setSelection(0);
-        ((UHFScanner) mBaseScanner).setClassVersion(UhfClassVersion.TS100);
+        ((UHFScanner) mBaseScanner).setClassVersion(UhfClassVersion.TS800);
         mSpnCommunicationType.setSelection(0);
         mBaseScanner.setCommunicationType(UDP);
     }

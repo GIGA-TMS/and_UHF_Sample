@@ -13,6 +13,7 @@ import com.gigatms.uhf.Toaster;
 import com.gigatms.uhf.paramsData.CheckboxListParamData;
 import com.gigatms.uhf.paramsData.EditTextParamData;
 import com.gigatms.uhf.paramsData.EditTextTitleParamData;
+import com.gigatms.uhf.paramsData.EventTypesParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
 import com.gigatms.uhf.paramsData.SpinnerParamData;
 import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
@@ -29,14 +30,19 @@ import com.gigatms.parameters.SelectInfo;
 import com.gigatms.parameters.SelectInfo.Action;
 import com.gigatms.parameters.Session;
 import com.gigatms.parameters.State;
+import com.gigatms.parameters.TagDataEncodeType;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
 import com.gigatms.parameters.TriggerType;
+import com.gigatms.parameters.event.BaseTagEvent;
+import com.gigatms.parameters.event.TagPresentedEvent;
+import com.gigatms.parameters.event.TagPresentedEventEx;
 import com.gigatms.tools.GTool;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +56,8 @@ import static com.gigatms.parameters.Session.SL;
 
 public class PWD100DeviceControlFragment extends DeviceControlFragment {
     private static final String TAG = PWD100DeviceControlFragment.class.getSimpleName();
+    private final String[] SECOND_CHOICES = {"REMOVE EVENT", "TID BANK"};
+    private final String[] EVENT_TYPES = {"TAG_PRESENTED_EVENT", "TAG_PRESENTED_EVENT_EX"};
 
     private GeneralCommandItem mStopInventoryCommand;
     private GeneralCommandItem mInventoryCommand;
@@ -65,14 +73,17 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mInventoryRoundIntervalCommand;
     private GeneralCommandItem mGetFwVersion;
 
-    private GeneralCommandItem mSsidPasswordCommand;
-    private GeneralCommandItem mSsidPasswordIpCommand;
     private GeneralCommandItem mInventoryOptionCommand;
     private GeneralCommandItem mNewSearchingTagConditionCommand;
     private GeneralCommandItem mAppendSearchingTagConditionCommand;
     private GeneralCommandItem mTriggerCommand;
     private GeneralCommandItem mScanModeCommand;
     private GeneralCommandItem mCommandTrigger;
+    private GeneralCommandItem mEventTypeCommand;
+    private GeneralCommandItem mFilterCommand;
+    private GeneralCommandItem mSsidPasswordCommand;
+    private GeneralCommandItem mSsidPasswordIpCommand;
+
 
     public static PWD100DeviceControlFragment newFragment(String devMacAddress) {
         Bundle args = new Bundle();
@@ -175,7 +186,6 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
             @Override
             public void didReadTag(MemoryBank memoryBank, int startWordAddress, byte[] readData) {
                 final String dataString = GTool.bytesToHexString(readData);
-                //TODO
                 onUpdateLog(TAG, "didReadTag:" +
                         "\n\tMemoryBank: " + memoryBank.name() +
                         "\n\tstartWordAddress: " + startWordAddress +
@@ -252,24 +262,16 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didReadEpc(byte[] epc) {
-                EditTextTitleParamData secondParam = (EditTextTitleParamData) mReadWriteEpcCommand.getViewDataArray()[1];
-                secondParam.setSelected(GTool.bytesToHexString(epc));
-                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mReadWriteEpcCommand.getPosition()));
-                onUpdateLog(TAG, "didReadEpc: " + GTool.bytesToHexString(epc));
-            }
-
-            @Override
             public void didGetTagPresentedRepeatInterval(int hundredMilliSeconds) {
                 SeekBarParamData selected = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(hundredMilliSeconds);
-                mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTagPresentedRepeatIntervalCommand.getPosition()));
                 if (hundredMilliSeconds == 254) {
                     onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Never");
                 } else if (hundredMilliSeconds == 0) {
                     onUpdateLog(TAG, "didGetTagPresentedRepeatInterval: Immediately");
                 } else {
-                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval[:" + hundredMilliSeconds + "*100 ms");
+                    onUpdateLog(TAG, "didGetTagPresentedRepeatInterval:" + hundredMilliSeconds + "*100 ms");
                 }
             }
 
@@ -277,7 +279,7 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
             public void didGetTagRemovedThreshold(int inventoryRound) {
                 SeekBarParamData selected = (SeekBarParamData) mTagRemovedThresholdCommand.getViewDataArray()[0];
                 selected.setSelected(inventoryRound);
-                mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTagRemovedThresholdCommand.getPosition()));
                 if (inventoryRound == 0) {
                     onUpdateLog(TAG, "didGetTagRemovedThreshold: Immediately");
                 } else {
@@ -289,7 +291,7 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
             public void didGetInventoryRoundInterval(int tenMilliSeconds) {
                 SeekBarParamData selected = (SeekBarParamData) mInventoryRoundIntervalCommand.getViewDataArray()[0];
                 selected.setSelected(tenMilliSeconds);
-                mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition());
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mInventoryRoundIntervalCommand.getPosition()));
                 if (tenMilliSeconds == 0) {
                     onUpdateLog(TAG, "didGetInventoryRoundInterval: Immediately");
                 } else {
@@ -322,6 +324,42 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
+            public void didGetEventType(final BaseTagEvent baseTagEvent) {
+                EventTypesParamData eventType = (EventTypesParamData) mEventTypeCommand.getViewDataArray()[0];
+                StringBuilder stringBuilder = new StringBuilder();
+                if (baseTagEvent instanceof TagPresentedEvent) {
+                    stringBuilder.append(EVENT_TYPES[0]);
+                    eventType.setFirstSelect(EVENT_TYPES[0]);
+                    TagPresentedEvent event = (TagPresentedEvent) baseTagEvent;
+                    Set<String> secondSelected = new HashSet<>();
+                    if (event.hasRemoveEvent()) {
+                        secondSelected.add(SECOND_CHOICES[0]);
+                        stringBuilder.append("\n\t").append(SECOND_CHOICES[0]);
+                    }
+                    if (event.hasTidBank()) {
+                        secondSelected.add(SECOND_CHOICES[1]);
+                        stringBuilder.append("\n\t").append(SECOND_CHOICES[1]);
+                    }
+                    eventType.setLastSelect(secondSelected);
+                } else if (baseTagEvent instanceof TagPresentedEventEx) {
+                    stringBuilder.append(EVENT_TYPES[1]);
+                    eventType.setFirstSelect(EVENT_TYPES[1]);
+                    eventType.setLastSelect(new HashSet<>());
+                }
+
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mEventTypeCommand.getPosition()));
+                onUpdateLog(TAG, "didGetEventType: " + stringBuilder.toString());
+            }
+
+            @Override
+            public void didGetFilter(Set<TagDataEncodeType> tagDataEncodeTypes) {
+                CheckboxListParamData selected1 = (CheckboxListParamData) mFilterCommand.getViewDataArray()[0];
+                selected1.setSelected(tagDataEncodeTypes);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mFilterCommand.getPosition()));
+                onUpdateLog(TAG, "didGetFilter: " + Arrays.toString(tagDataEncodeTypes.toArray()));
+            }
+
+            @Override
             public void didGetInventoryActiveMode(ActiveMode activeMode) {
                 SpinnerParamData selected = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];
                 selected.setSelected(activeMode);
@@ -343,6 +381,8 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
         newCommandTrigger();
         newPWD100ScanModeCommand();
         newPWD100TriggerCommand();
+        newEventTypeCommand();
+        newFilterCommand();
         newPWD100InventoryOption();
         newPWD100NewSearchingTagCondition();
         newPWD100AppendSearchingTagCondition();
@@ -375,6 +415,8 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mScanModeCommand);
         mAdapter.add(mTriggerCommand);
         mAdapter.add(mCommandTrigger);
+        mAdapter.add(mEventTypeCommand);
+        mAdapter.add(mFilterCommand);
         mAdapter.add(mInventoryOptionCommand);
         mAdapter.add(mNewSearchingTagConditionCommand);
         mAdapter.add(mAppendSearchingTagConditionCommand);
@@ -410,10 +452,10 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
 
     private void newInventoryActiveModeCommand() {
         mInventoryActiveMode = new GeneralCommandItem("Inventory Active Mode", "Get", "Set", new SpinnerParamData<>(new ActiveMode[]{READ, COMMAND}));
-        mInventoryActiveMode.setLeftOnClickListener(v -> mUhf.getInventoryActiveMode());
+        mInventoryActiveMode.setLeftOnClickListener(v -> ((PWD100) mUhf).getInventoryActiveMode(true));
         mInventoryActiveMode.setRightOnClickListener(v -> {
             SpinnerParamData viewData = (SpinnerParamData) mInventoryActiveMode.getViewDataArray()[0];
-            mUhf.setInventoryActiveMode((ActiveMode) viewData.getSelected());
+            ((PWD100) mUhf).setInventoryActiveMode(true, (ActiveMode) viewData.getSelected());
         });
     }
 
@@ -497,10 +539,10 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
     private void newTagPresentedEventThresholdCommand() {
         mTagPresentedRepeatIntervalCommand = new GeneralCommandItem("Get/Set Tag Presented Repeat Interval"
                 , new SeekBarParamData(0, 255));
-        mTagPresentedRepeatIntervalCommand.setLeftOnClickListener(v -> mUhf.getTagPresentedRepeatInterval(mTemp));
+        mTagPresentedRepeatIntervalCommand.setLeftOnClickListener(v -> ((PWD100) mUhf).getTagPresentedRepeatInterval(mTemp));
         mTagPresentedRepeatIntervalCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mTagPresentedRepeatIntervalCommand.getViewDataArray()[0];
-            mUhf.setTagPresentedRepeatInterval(mTemp, viewData.getSelected());
+            ((PWD100) mUhf).setTagPresentedRepeatInterval(mTemp, viewData.getSelected());
         });
     }
 
@@ -624,6 +666,51 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
         mCommandTrigger.setLeftOnClickListener(v -> ((PWD100) mUhf).getCommandTriggerState());
     }
 
+    private void newEventTypeCommand() {
+        EventTypesParamData mEventTypeParamData = new EventTypesParamData(
+                EVENT_TYPES, null
+                , SECOND_CHOICES);
+        mEventTypeCommand = new GeneralCommandItem("Get/Set Event Type"
+                , mEventTypeParamData);
+        mEventTypeParamData.setOnFirstItemSelected(selected -> {
+            if (selected.equals(EVENT_TYPES[0])) {
+                mEventTypeParamData.setLastChoices(SECOND_CHOICES);
+            } else if (selected.equals(EVENT_TYPES[1])) {
+                mEventTypeParamData.setLastChoices(new String[0]);
+            }
+            mAdapter.notifyItemChanged(mEventTypeCommand.getPosition());
+        });
+        mEventTypeCommand.setLeftOnClickListener(v -> ((PWD100) mUhf).getEventType(mTemp));
+        mEventTypeCommand.setRightOnClickListener(v -> {
+            EventTypesParamData event = (EventTypesParamData) mEventTypeCommand.getViewDataArray()[0];
+            String eventType = event.getFirstSelect();
+            if (eventType.equals(EVENT_TYPES[0])) {
+                TagPresentedEvent.Builder builder = new TagPresentedEvent.Builder();
+                if (event.getLastSelect().contains(SECOND_CHOICES[0])) {
+                    builder.setRemoveEvent(true);
+                }
+                if (event.getLastSelect().contains(SECOND_CHOICES[1])) {
+                    builder.setTidBank(true);
+                }
+                ((PWD100) mUhf).setEventType(mTemp, builder.build());
+            } else if (eventType.equals(EVENT_TYPES[1])) {
+                ((PWD100) mUhf).setEventType(mTemp, new TagPresentedEventEx());
+            }
+        });
+    }
+
+    private void newFilterCommand() {
+        mFilterCommand = new GeneralCommandItem("Get/Set Filter",
+                new CheckboxListParamData<>(EnumSet.allOf(TagDataEncodeType.class)));
+        mFilterCommand.setRightOnClickListener(v -> {
+            CheckboxListParamData viewData = (CheckboxListParamData) mFilterCommand.getViewDataArray()[0];
+            ((PWD100) mUhf).setFilter(mTemp, viewData.getSelected());
+        });
+        mFilterCommand.setLeftOnClickListener(v -> {
+            ((PWD100) mUhf).getFilter(mTemp);
+        });
+    }
+
     private void newPWD100SsidPasswordCommand() {
         mSsidPasswordCommand = new GeneralCommandItem("Set WiFi Settings", null, "Set"
                 , new EditTextTitleParamData("SSID", "SSID of station mode")
@@ -652,4 +739,5 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
             ((PWD100) mUhf).setWifiSettings(ssid.getSelected(), password.getSelected(), ip.getSelected(), gateway.getSelected(), subnetMask.getSelected());
         });
     }
+
 }
