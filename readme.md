@@ -5,6 +5,9 @@ Introduction
 
 The GIGA-TMS UHF SDK sample shows a list of available devices and provides an interface to connect and communication.
 
+Supported Product: TS100, TS100A, TS800, MU400H, NR800, PWD100, UR0250
+
+
 Pre-requisites
 --------------
 - Android version 5.0~10.0
