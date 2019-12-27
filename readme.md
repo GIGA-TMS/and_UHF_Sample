@@ -5,12 +5,16 @@ Introduction
 
 The GIGA-TMS UHF SDK sample shows a list of available devices and provides an interface to connect and communication.
 
+Supported Product: TS100, TS100A, TS800, MU400H, NR800, PWD100, UR0250
+
+
 Pre-requisites
 --------------
-- Android version 5.0~9.0
-- Android API 21~28
-- Android IDE 3.4.2
-- Android Support Repository
+- Android version 5.0~10.0
+- Android API 21~29
+- Android IDE 3.5.1
+- Androidx
+- JDK 1_8
 
 
 Getting Started
@@ -67,8 +71,7 @@ Before Scanner a `UHFDevice`, `ScannerCallback` is needed to be implement.
 ```
 
 ``` java
- UHFScanner uhfScanner = new UHFScanner(UhfClassVersion.TS800, getContext(), this, BLE);
- uhfScanner.setScannerCallback(scannerCallback);
+ UHFScanner uhfScanner = new UHFScanner(UhfClassVersion.TS800, getContext(), scannerCallback, BLE);
  uhfScanner.startScan();
 ```
 
@@ -85,9 +88,8 @@ A connection callback function will called if the connection status with remote 
  CommunicationCallback mCommunicationCallback = new CommunicationCallback{
     @Override 
     public void didUpdateConnection(ConnectionState connectedState, CommunicationType type) {
-        //Please call initializeSettings method every time when connection is done.
         if(commectedState==CONNECTED){
-            ts800.initializeSettings();
+            //TODO Any function after the remote device is connected
         }
         //TODO There are three connectionState: Connected, Connecting and Disconnection. Please make sure the remote TS800 is connected before operating remote TS800.  
         //TODO TS800 has BLE, TCP connection types
@@ -218,6 +220,26 @@ After operating TS800, a method of UHFCallback function will called.
 Method `didGetRfPower` of UHFCallback will called if this operation is success.
 
 Method `didGeneralError("GET_RF_POWER",errorMessage)` of UHFCallback will called if this operation is failed.
+
+### Device with trigger
+
+`ScanMode` is an important setting of devices which supported trigger.
+
+If user wants to scan while the Active mode of device isn't `COMMAND_MODE`, please set `ScanMode` to ALWAYS_SCAN.
+
+```java
+ts800.setScanMode(ALWAYS_SCAN);
+```
+
+If user wants to scan while the device is trigger by sensor, button or even command while the ACtive mode of device isn't `COMMAND_MODE`, please set `ScanMode` to `TRIGGER_A_LEVEL_CONTROL`
+
+```java
+ts800.setScanMode(TRIGGER_A_LEVEL_CONTROL);
+```
+
+And then, the device would scan tag while the `ActiveMode` isn't `COMMAND_MODE` and is triggered. 
+
+Please call `setCommandTriggerState(ON)` to trigger device through Command.
 
 #### Important
 

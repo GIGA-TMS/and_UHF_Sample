@@ -3,10 +3,10 @@ package com.gigatms.uhf;
 import android.content.Context;
 import android.widget.Toast;
 
-class Toaster {
+public class Toaster {
     private static Toast toast;
 
-    static  void showToast(Context context, String text, int duration) {
+    public static void showToast(Context context, String text, int duration) {
         if (toast != null) {
             toast.cancel();
         }

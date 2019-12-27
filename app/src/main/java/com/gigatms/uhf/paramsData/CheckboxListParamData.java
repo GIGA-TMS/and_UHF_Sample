@@ -8,18 +8,18 @@ import java.util.Set;
 
 import static com.gigatms.uhf.paramsData.ParamData.ViewType.CHECKBOX_LIST;
 
-public class CheckboxParamData<E extends Enum<E>> extends ParamData {
-    private static final String TAG = CheckboxParamData.class.getSimpleName();
+public class CheckboxListParamData<E extends Enum<E>> extends ParamData {
+    private static final String TAG = CheckboxListParamData.class.getSimpleName();
     private Set<E> mData;
     private Set<Integer> mSelectedOrdinal;
 
-    public CheckboxParamData(Class<E> enumData) {
+    public CheckboxListParamData(Class<E> enumData) {
         super(CHECKBOX_LIST);
         mData = EnumSet.allOf(enumData);
         mSelectedOrdinal = new HashSet<>();
     }
 
-    public CheckboxParamData(Set<E> enumData) {
+    public CheckboxListParamData(Set<E> enumData) {
         super(CHECKBOX_LIST);
         mData = enumData;
         mSelectedOrdinal = new HashSet<>();
