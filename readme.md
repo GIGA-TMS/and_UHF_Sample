@@ -7,10 +7,11 @@ The GIGA-TMS UHF SDK sample shows a list of available devices and provides an in
 
 Pre-requisites
 --------------
-- Android version 5.0~9.0
-- Android API 21~28
+- Android version 5.0~10.0
+- Android API 21~29
 - Android IDE 3.5.1
 - Androidx
+- JDK 1_8
 
 
 Getting Started

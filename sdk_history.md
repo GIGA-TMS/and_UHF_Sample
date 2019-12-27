@@ -1,3 +1,35 @@
+# 2.1.0 
+## Refactor 
+#### TS100, TS800, UR0250, MU400H, PWD100, NR800
+* setEventType(boolean temporary, EventType eventType) -> setEventType(boolean temporary, BaseTagEvent baseTagEvent)
+
+## ADD
+#### TS100A is now supported
+
+## Fix
+#### ReadTag with wrong result while the Bank is locked.
+
+# 2.0.0.10 (Internal Testing)
+## Refactor
+#### TS100 & MU400H
+* setPostDataDelimiter(boolean temporary, PostDataDelimiter postDataDelimiter) -> setPostDataDelimiter(boolean temporary, Set<PostDataDelimiter> postDataDelimiter)
+* setMemoryBankSelection(boolean temporary, MemoryBankSelection memoryBankSelection) -> setMemoryBankSelection(boolean temporary, Set<MemoryBankSelection> memoryBankSelections)
+
+#### UHFDevice
+* writeEpc(String hexStringAccessPassword, String hexSelectedEpc, byte[] epcData) -> writeEpc(String hexSelectedPcEpc, String hexAccessPassword,  byte[] epcData)
+* readTag(String hexStringPassword, String selectedPcEpc, MemoryBank memoryBank, int startWordAddress, int readLength) -> readTag(String hexSelectedPcEpc, String hexAccessPassword, MemoryBank memoryBank, int startWordAddress, int readLength)
+* writeTag(String hexStringPassword, String selectedPcEpc, MemoryBank memoryBank, int startWordAddress, byte[] data) -> writeTag(String hexSelectedPcEpc, String hexAccessPassword, MemoryBank memoryBank, int startWordAddress, byte[] data)
+
+## Add
+#### TS100 & MU400H
+* getInventoryActiveMode
+* setInventoryActiveMode
+
+# 2.0.0.9
+## Fix
+#### NR800
+* Null value while setting suffix, prefix, and tid delimiter.
+
 # 2.0.0.8
 * Add Error Handle of UHFDevice, TS100, TS800, UR0250, MU400H, NR800
 * Refactor function name of MU400H.setOutputInterface -> MU400H.setOutputInterface  
