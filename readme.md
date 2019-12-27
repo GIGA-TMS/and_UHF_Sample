@@ -68,8 +68,7 @@ Before Scanner a `UHFDevice`, `ScannerCallback` is needed to be implement.
 ```
 
 ``` java
- UHFScanner uhfScanner = new UHFScanner(UhfClassVersion.TS800, getContext(), this, BLE);
- uhfScanner.setScannerCallback(scannerCallback);
+ UHFScanner uhfScanner = new UHFScanner(UhfClassVersion.TS800, getContext(), scannerCallback, BLE);
  uhfScanner.startScan();
 ```
 
