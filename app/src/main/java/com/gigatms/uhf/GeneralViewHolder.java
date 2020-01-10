@@ -21,6 +21,7 @@ import com.gigatms.uhf.paramsData.CheckBoxParamData;
 import com.gigatms.uhf.paramsData.CheckboxListParamData;
 import com.gigatms.uhf.paramsData.EditTextParamData;
 import com.gigatms.uhf.paramsData.EditTextTitleParamData;
+import com.gigatms.uhf.paramsData.EventTypesParamData;
 import com.gigatms.uhf.paramsData.ParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
 import com.gigatms.uhf.paramsData.SeekBarTitleParamData;
@@ -92,6 +93,8 @@ public class GeneralViewHolder extends RecyclerView.ViewHolder {
             case EDIT_TEXT_WITH_TITLE:
                 setEditTextTitleView((EditTextTitleParamData) viewData);
                 break;
+            case TS100_EVENT_TYPES_PARAM:
+                uhfView((EventTypesParamData) viewData);
             default:
                 break;
         }
@@ -441,5 +444,66 @@ public class GeneralViewHolder extends RecyclerView.ViewHolder {
         mSecondSpinner.setLayoutParams(cellParams1);
         tableRow.addView(mSecondSpinner);
         mTableLayout.addView(tableRow);
+    }
+
+    private void uhfView(EventTypesParamData eventTypeParamData) {
+        Spinner eventTypes = new Spinner(itemView.getContext());
+        final ArrayAdapter<String> firstArrayAdapter = new ArrayAdapter<>(itemView.getContext(),
+                android.R.layout.simple_spinner_dropdown_item,
+                eventTypeParamData.getFirstChoices());
+        eventTypes.setAdapter(firstArrayAdapter);
+
+        eventTypes.setSelection(firstArrayAdapter.getPosition(eventTypeParamData.getFirstSelect()), true);
+
+        eventTypes.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                eventTypeParamData.setFirstSelect((String) eventTypes.getItemAtPosition(position));
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
+        mTableLayout.addView(eventTypes);
+
+
+        if (eventTypeParamData.getMiddleChoices() != null) {
+            Spinner middleSpinner = new Spinner(itemView.getContext());
+            final ArrayAdapter<String> middleAdapter = new ArrayAdapter<>(itemView.getContext(),
+                    android.R.layout.simple_spinner_dropdown_item,
+                    eventTypeParamData.getMiddleChoices());
+            middleSpinner.setAdapter(middleAdapter);
+
+            middleSpinner.setSelection(middleAdapter.getPosition(eventTypeParamData.getMiddleSelect()), true);
+
+            middleSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                    eventTypeParamData.setMiddleSelect((String) middleSpinner.getItemAtPosition(position));
+                }
+
+                @Override
+                public void onNothingSelected(AdapterView<?> parent) {
+
+                }
+            });
+            mTableLayout.addView(middleSpinner);
+        }
+
+        for (final String data : eventTypeParamData.getLastChoices()) {
+            final CheckBox checkBox = new CheckBox(itemView.getContext());
+            checkBox.setText(data);
+            checkBox.setChecked(eventTypeParamData.getLastSelect().contains(data));
+            checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                if (isChecked) {
+                    eventTypeParamData.getLastSelect().add(checkBox.getText().toString());
+                } else {
+                    eventTypeParamData.getLastSelect().remove(checkBox.getText().toString());
+                }
+            });
+            mTableLayout.addView(checkBox);
+        }
     }
 }
