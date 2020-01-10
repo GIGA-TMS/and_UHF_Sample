@@ -32,13 +32,13 @@ import com.gigatms.TS800;
 import com.gigatms.UHFCallback;
 import com.gigatms.UHFDevice;
 import com.gigatms.UR0250;
-import com.gigatms.uhf.paramsData.EditTextTitleParamData;
-import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
 import com.gigatms.exceptions.ErrorParameterException;
 import com.gigatms.parameters.LockAction;
 import com.gigatms.parameters.MemoryBank;
 import com.gigatms.tools.GLog;
 import com.gigatms.tools.GTool;
+import com.gigatms.uhf.paramsData.EditTextTitleParamData;
+import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import java.util.Arrays;
@@ -191,13 +191,18 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
         newLockTagWithoutPassword();
         newKillTagWithPassword();
         newKillTagWithoutPassword();
+        onNewB2ECommands();
     }
+
+    protected abstract void onNewB2ECommands();
 
     protected abstract void onNewSettingCommands();
 
     protected abstract void onShowInventoryViews();
 
     protected abstract void onShowAdvanceViews();
+
+    protected abstract void onShowB2ECommands();
 
     private void onShowReadWriteTagViews() {
         mAdapter.add(mWriteEpcCommand);
@@ -206,6 +211,7 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
         mAdapter.add(mReadTagCommand);
         mAdapter.add(mWriteTagWithSelectedEpcCommand);
         mAdapter.add(mWriteTagCommand);
+        onShowB2ECommands();
         mAdapter.add(mLockTagWithPassword);
         mAdapter.add(mLockTagWithoutPassword);
         mAdapter.add(mKillTagWithPassword);
@@ -512,7 +518,7 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
     @Override
     public void onPause() {
         super.onPause();
-        GLog.d(TAG, "onPause");
+        GLog.v(TAG, "onPause");
         getActivity().unregisterReceiver(mUsbReceiver);
         mUhf.setCommunicationCallback(null);
         mUhf.setUHFCallback(null);

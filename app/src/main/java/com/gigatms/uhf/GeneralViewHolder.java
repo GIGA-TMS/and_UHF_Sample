@@ -27,8 +27,11 @@ import com.gigatms.uhf.paramsData.SeekBarParamData;
 import com.gigatms.uhf.paramsData.SeekBarTitleParamData;
 import com.gigatms.uhf.paramsData.SpinnerParamData;
 import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
+import com.gigatms.uhf.paramsData.InterchangeableParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerTitleParamData;
+
+import java.util.List;
 
 public class GeneralViewHolder extends RecyclerView.ViewHolder {
     private Button mBtnRight;
@@ -94,7 +97,10 @@ public class GeneralViewHolder extends RecyclerView.ViewHolder {
                 setEditTextTitleView((EditTextTitleParamData) viewData);
                 break;
             case TS100_EVENT_TYPES_PARAM:
-                uhfView((EventTypesParamData) viewData);
+                setEventTypeView((EventTypesParamData) viewData);
+                break;
+            case INTERCHANGEABLE_VIEW:
+                setInterchangeableView((InterchangeableParamData) viewData);
             default:
                 break;
         }
@@ -280,9 +286,7 @@ public class GeneralViewHolder extends RecyclerView.ViewHolder {
         final CheckBox checkBox = new CheckBox(itemView.getContext());
         checkBox.setText(checkBoxParamData.getTitle());
         checkBox.setChecked(checkBoxParamData.isChecked());
-        checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            checkBoxParamData.setChecked(isChecked);
-        });
+        checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> checkBoxParamData.setChecked(isChecked));
         mTableLayout.addView(checkBox);
     }
 
@@ -446,7 +450,7 @@ public class GeneralViewHolder extends RecyclerView.ViewHolder {
         mTableLayout.addView(tableRow);
     }
 
-    private void uhfView(EventTypesParamData eventTypeParamData) {
+    private void setEventTypeView(EventTypesParamData eventTypeParamData) {
         Spinner eventTypes = new Spinner(itemView.getContext());
         final ArrayAdapter<String> firstArrayAdapter = new ArrayAdapter<>(itemView.getContext(),
                 android.R.layout.simple_spinner_dropdown_item,
@@ -504,6 +508,44 @@ public class GeneralViewHolder extends RecyclerView.ViewHolder {
                 }
             });
             mTableLayout.addView(checkBox);
+        }
+    }
+
+    private void setInterchangeableView(InterchangeableParamData interchangeableParamData) {
+        TextView textView = new TextView(itemView.getContext());
+        textView.setText(interchangeableParamData.getTitle());
+        Spinner spinner = new Spinner(itemView.getContext());
+        final ArrayAdapter<Enum> arrayAdapter = new ArrayAdapter<>(itemView.getContext(),
+                android.R.layout.simple_spinner_dropdown_item,
+                interchangeableParamData.getDataArray());
+        spinner.setAdapter(arrayAdapter);
+        spinner.setSelection(arrayAdapter.getPosition(interchangeableParamData.getSelected()), true);
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                interchangeableParamData.setSelected(arrayAdapter.getItem(position));
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
+        TableRow tableRow = new TableRow(itemView.getContext());
+        TableRow.LayoutParams cellParams1 = new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT);
+        cellParams1.weight = 1;
+        cellParams1.leftMargin = 10;
+
+        TableRow.LayoutParams cellParams2 = new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT);
+        cellParams2.weight = 3;
+        textView.setLayoutParams(cellParams1);
+        tableRow.addView(textView);
+        spinner.setLayoutParams(cellParams2);
+        tableRow.addView(spinner);
+        mTableLayout.addView(tableRow);
+        List<ParamData> paramDataList = interchangeableParamData.getParamData();
+        for (ParamData paramData : paramDataList) {
+            setView(paramData);
         }
     }
 }

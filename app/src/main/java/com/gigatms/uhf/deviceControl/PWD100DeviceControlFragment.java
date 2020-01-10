@@ -3,9 +3,7 @@ package com.gigatms.uhf.deviceControl;
 import android.os.Bundle;
 import android.widget.Toast;
 
-import com.gigatms.DecodedTagData;
 import com.gigatms.PWD100;
-import com.gigatms.TagInformationFormat;
 import com.gigatms.UHFCallback;
 import com.gigatms.uhf.DeviceControlFragment;
 import com.gigatms.uhf.GeneralCommandItem;
@@ -15,11 +13,13 @@ import com.gigatms.uhf.paramsData.EditTextParamData;
 import com.gigatms.uhf.paramsData.EditTextTitleParamData;
 import com.gigatms.uhf.paramsData.EventTypesParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
+import com.gigatms.uhf.paramsData.SeekBarTitleParamData;
 import com.gigatms.uhf.paramsData.SpinnerParamData;
 import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerTitleParamData;
 import com.gigatms.parameters.ActiveMode;
+import com.gigatms.parameters.DecodedTagData;
 import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
 import com.gigatms.parameters.InventoryOption;
@@ -31,6 +31,7 @@ import com.gigatms.parameters.SelectInfo.Action;
 import com.gigatms.parameters.Session;
 import com.gigatms.parameters.State;
 import com.gigatms.parameters.TagDataEncodeType;
+import com.gigatms.parameters.TagInformationFormat;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
 import com.gigatms.parameters.TriggerType;
@@ -39,6 +40,9 @@ import com.gigatms.parameters.event.TagPresentedEvent;
 import com.gigatms.parameters.event.TagPresentedEventEx;
 import com.gigatms.tools.GTool;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -50,6 +54,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static android.widget.Toast.LENGTH_LONG;
 import static com.gigatms.parameters.ActiveMode.COMMAND;
 import static com.gigatms.parameters.ActiveMode.READ;
 import static com.gigatms.parameters.Session.SL;
@@ -81,9 +86,10 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mCommandTrigger;
     private GeneralCommandItem mEventTypeCommand;
     private GeneralCommandItem mFilterCommand;
+    private GeneralCommandItem mRemoteHostCommand;
     private GeneralCommandItem mSsidPasswordCommand;
     private GeneralCommandItem mSsidPasswordIpCommand;
-
+    private GeneralCommandItem mWiFiMacAddressCommand;
 
     public static PWD100DeviceControlFragment newFragment(String devMacAddress) {
         Bundle args = new Bundle();
@@ -366,6 +372,32 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mInventoryActiveMode.getPosition()));
                 onUpdateLog(TAG, "didGetInventoryActiveMode: " + activeMode.name());
             }
+
+            @Override
+            public void didGetRemoteHost(int connectTimeout, InetSocketAddress socketAddress) {
+                if (socketAddress != null) {
+                    SeekBarTitleParamData timeout = (SeekBarTitleParamData) mRemoteHostCommand.getViewDataArray()[0];
+                    EditTextTitleParamData ip = (EditTextTitleParamData) mRemoteHostCommand.getViewDataArray()[1];
+                    EditTextTitleParamData port = (EditTextTitleParamData) mRemoteHostCommand.getViewDataArray()[2];
+                    timeout.setSelected(connectTimeout);
+                    String ipString = socketAddress.getAddress().getHostAddress();
+                    ip.setSelected(ipString);
+                    String portString = "" + socketAddress.getPort();
+                    port.setSelected(portString);
+                    mRecyclerView.post(() -> mAdapter.notifyItemChanged(mRemoteHostCommand.getPosition()));
+                    onUpdateLog(TAG, "didGetRemoteHost"
+                            + "\n\tConnect Timeout: " + (timeout.getSelected() == 0 ? "0 (Stay Connected)" : "" + timeout.getSelected())
+                            + "\n\tIP: " + ipString
+                            + "\n\tPort: " + portString);
+                } else {
+                    onUpdateLog(TAG, "didGetRemoteHost: No Remote Host!");
+                }
+            }
+
+            @Override
+            public void didGetWiFiMacAddress(String macAddress) {
+                onUpdateLog(TAG, "didGetWiFiMacAddress: " + macAddress);
+            }
         };
     }
 
@@ -386,8 +418,15 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
         newPWD100InventoryOption();
         newPWD100NewSearchingTagCondition();
         newPWD100AppendSearchingTagCondition();
+        newRemoteHostCommand();
         newPWD100SsidPasswordCommand();
         newPWD100SsidPasswordIpCommand();
+        newWiFiMacAddressCommand();
+    }
+
+    @Override
+    protected void onNewB2ECommands() {
+        //PWD100 doesn't have B2E command
     }
 
     @Override
@@ -420,8 +459,15 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mInventoryOptionCommand);
         mAdapter.add(mNewSearchingTagConditionCommand);
         mAdapter.add(mAppendSearchingTagConditionCommand);
+        mAdapter.add(mRemoteHostCommand);
         mAdapter.add(mSsidPasswordCommand);
         mAdapter.add(mSsidPasswordIpCommand);
+        mAdapter.add(mWiFiMacAddressCommand);
+    }
+
+    @Override
+    protected void onShowB2ECommands() {
+        //PWD100 doesn't have B2E command
     }
 
     @Override
@@ -672,7 +718,7 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
                 , SECOND_CHOICES);
         mEventTypeCommand = new GeneralCommandItem("Get/Set Event Type"
                 , mEventTypeParamData);
-        mEventTypeParamData.setOnFirstItemSelected(selected -> {
+        mEventTypeParamData.setOnFirstItemSelectedListener(selected -> {
             if (selected.equals(EVENT_TYPES[0])) {
                 mEventTypeParamData.setLastChoices(SECOND_CHOICES);
             } else if (selected.equals(EVENT_TYPES[1])) {
@@ -706,9 +752,45 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
             CheckboxListParamData viewData = (CheckboxListParamData) mFilterCommand.getViewDataArray()[0];
             ((PWD100) mUhf).setFilter(mTemp, viewData.getSelected());
         });
-        mFilterCommand.setLeftOnClickListener(v -> {
-            ((PWD100) mUhf).getFilter(mTemp);
-        });
+        mFilterCommand.setLeftOnClickListener(v -> ((PWD100) mUhf).getFilter(mTemp));
+    }
+
+    private void newRemoteHostCommand() {
+        mRemoteHostCommand = new GeneralCommandItem("Get/Set Remote Host"
+                , new SeekBarTitleParamData("Connect Timeout(100ms)", 0, 7)
+                , new EditTextTitleParamData("IP", "XXX.XXX.XXX.XXX")
+                , new EditTextTitleParamData("Port", "1111"));
+        mRemoteHostCommand.setLeftOnClickListener(v -> ((PWD100) mUhf).getRemoteHost());
+        mRemoteHostCommand.setRightOnClickListener(v -> new Thread(() -> {
+            try {
+                SeekBarTitleParamData connectTimeout = (SeekBarTitleParamData) mRemoteHostCommand.getViewDataArray()[0];
+                EditTextTitleParamData ip = (EditTextTitleParamData) mRemoteHostCommand.getViewDataArray()[1];
+                EditTextTitleParamData port = (EditTextTitleParamData) mRemoteHostCommand.getViewDataArray()[2];
+                if (GTool.isDigital(port.getSelected()) && !port.getSelected().equals("") && !ip.getSelected().equals("")) {
+                    InetSocketAddress inetSocketAddress = new InetSocketAddress(InetAddress.getByName(ip.getSelected()), Integer.parseInt(port.getSelected()));
+                    ((PWD100) mUhf).setRemoteHost((byte) connectTimeout.getSelected(), inetSocketAddress);
+                } else if (port.getSelected().equals("") && ip.getSelected().equals("")) {
+                    ((PWD100) mUhf).setRemoteHost(0, null);
+                } else if (port.getSelected().equals("")) {
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> Toaster.showToast(getContext(), "Please fill the Port!", LENGTH_LONG));
+                    }
+                } else if (ip.getSelected().equals("")) {
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> Toaster.showToast(getContext(), "Please fill the IP!", LENGTH_LONG));
+                    }
+                } else {
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> Toaster.showToast(getContext(), "Port should be integer", LENGTH_LONG));
+                    }
+                }
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> Toaster.showToast(getContext(), e.getMessage(), LENGTH_LONG));
+                }
+            }
+        }).start());
     }
 
     private void newPWD100SsidPasswordCommand() {
@@ -740,4 +822,8 @@ public class PWD100DeviceControlFragment extends DeviceControlFragment {
         });
     }
 
+    private void newWiFiMacAddressCommand() {
+        mWiFiMacAddressCommand = new GeneralCommandItem("Get Wi-Fi Mac Address", null, "Get");
+        mWiFiMacAddressCommand.setRightOnClickListener((view) -> ((PWD100) mUhf).getWiFiMacAddress());
+    }
 }

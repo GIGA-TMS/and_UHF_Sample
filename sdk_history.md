@@ -1,3 +1,67 @@
+# 2.2.0
+Influence Products: TS100, TS800, UR0250, PWD100, MU400H
+
+## TS100, TS100A-00, Main: ROM-T1894 V1.09r5(1911260), BLE: ROM-T1857 V1.02R4   
+#### ADD
+* getWiFiMacAddress
+* setRemoteHost
+* getRemoteHost
+* writeTagEx with and without access password
+* readTagEx with and without access password
+* getBarcodeReadFormat
+* setBarcodeReadFormat
+
+#### Refactor
+* com.gigatms.DecodedTagData -> com.gigatms.parameters.DecodedTagData
+* com.gigatms.TagInformationFormat -> com.gigatms.parameters.TagInformationFormat
+* PostDataDelimiter.CARRIAGE -> PostDataDelimiter.CR
+* PostDataDelimiter.LINE -> PostDataDelimiter.LF
+* PostDataDelimiter.TAD -> PostDataDelimiter.TAB
+
+## TS800, TS800-00 Main: ROM-T1888 V1.00R1(1911240), BLE: ROM-1857 V1.02R7
+#### ADD
+* getWiFiMacAddress
+* setRemoteHost
+* getRemoteHost
+
+#### Refactor
+* com.gigatms.DecodedTagData -> com.gigatms.parameters.DecodedTagData
+* com.gigatms.TagInformationFormat -> com.gigatms.parameters.TagInformationFormat
+
+## UR0250, UR0250-00 ROM-T1800 V1.00R0(1907310), BLE: ROM-T1857 V1.02R7
+#### ADD
+* getWiFiMacAddress
+* setRemoteHost
+* getRemoteHost
+
+#### Refactor
+* com.gigatms.DecodedTagData -> com.gigatms.parameters.DecodedTagData
+* com.gigatms.TagInformationFormat -> com.gigatms.parameters.TagInformationFormat
+
+## PWD100, FW not release yet!
+#### ADD
+* getWiFiMacAddress
+* setRemoteHost
+* getRemoteHost
+
+#### Refactor
+* com.gigatms.DecodedTagData -> com.gigatms.parameters.DecodedTagData
+* com.gigatms.TagInformationFormat -> com.gigatms.parameters.TagInformationFormat
+
+## MU400H, MU400H-00 ROM-T1870 V1.00r8(1912310)
+#### ADD
+* writeTagEx with and without access password
+* readTagEx with and without access password
+* getBarcodeReadFormat
+* setBarcodeReadFormat
+
+#### Refactor
+* com.gigatms.DecodedTagData -> com.gigatms.parameters.DecodedTagData
+* com.gigatms.TagInformationFormat -> com.gigatms.parameters.TagInformationFormat
+* PostDataDelimiter.CARRIAGE -> PostDataDelimiter.CR
+* PostDataDelimiter.LINE -> PostDataDelimiter.LF
+* PostDataDelimiter.TAD -> PostDataDelimiter.TAB
+
 # 2.1.0 
 ## Refactor 
 #### TS100, TS800, UR0250, MU400H, PWD100, NR800
@@ -38,6 +102,7 @@
 ## Refactor
 #### UHFDevice
 * getRomVersion -> getFirmwareVersion 
+
 ## Add
 #### Product Supported Trigger Feature
 * setScanMode
@@ -46,11 +111,13 @@
 * getCommandTriggerState
 * setTriggerType
 * getTriggerType
+
 #### UHFDevice 
 * getInventoryActiveMode
 * setInventoryActiveMode
 * lockTag
 * killTag
+
 ## Remove
 #### Product Supported Trigger Feature
 * trigger init in initializeSetting function
@@ -64,6 +131,7 @@
 #### NR800
 * setTextTagEventType
 * getTextTagEventType
+
 # 2.0.0.4
 ## Add
 * Gradle: Proguard 
@@ -74,6 +142,7 @@
 * getBleDeviceName of UHFDevice -> getBleDeviceName of UR0250, TS800, TS100
 * setBleDeviceName of UHFDevice -> getBleDeviceName of UR0250, TS800, TS100
 * getBleRomVersion of UHFDevice -> getBleRomVersion of UR0250, TS800, TS100
+
 #### UHFDevice
 * setTagRemovedEventThreshold -> setTagRemovedThreshold
 * getTagRemovedEventThreshold -> getTagRemovedThreshold
@@ -83,6 +152,7 @@
 ## Add
 #### Supported device
 * NR800, PWD100
+
 #### NR800
 * setTagEventInterval
 * getTagEventInterval
@@ -96,6 +166,7 @@
 * getTidDelimiter
 * setScanMode
 * getScanMode
+
 #### PWD100
 * setWifiSettings
 * getInventoryOption
@@ -134,7 +205,6 @@
 * getFilter
 
 # 2.0.0.1
-
 #### Supported Product:
 * TS800
 * UR0250

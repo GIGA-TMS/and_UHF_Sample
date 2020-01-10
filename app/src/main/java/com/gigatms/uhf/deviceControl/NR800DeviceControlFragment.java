@@ -2,9 +2,9 @@ package com.gigatms.uhf.deviceControl;
 
 import android.os.Bundle;
 
-import com.gigatms.DecodedTagData;
+import com.gigatms.parameters.DecodedTagData;
 import com.gigatms.NR800;
-import com.gigatms.TagInformationFormat;
+import com.gigatms.parameters.TagInformationFormat;
 import com.gigatms.UHFCallback;
 import com.gigatms.uhf.DeviceControlFragment;
 import com.gigatms.uhf.GeneralCommandItem;
@@ -410,6 +410,11 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
     }
 
     @Override
+    protected void onNewB2ECommands() {
+        //NR800 doesn't have B2E Command
+    }
+
+    @Override
     protected void onNewSettingCommands() {
         newRfPowerCommand();
         newRfSensitivityCommand();
@@ -440,6 +445,11 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mVibratorStateCommand);
         mAdapter.add(mTagEventIntervalCommand);
         mAdapter.add(mEventTypeCommand);
+    }
+
+    @Override
+    protected void onShowB2ECommands() {
+        //NR800 doesn't have B2E Command
     }
 
     @Override
@@ -567,7 +577,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
                 , TAG_EVENT_FORMAT);
         mEventTypeCommand = new GeneralCommandItem("Get/Set Event Type"
                 , mEventTypeParamData);
-        mEventTypeParamData.setOnFirstItemSelected(selected -> {
+        mEventTypeParamData.setOnFirstItemSelectedListener(selected -> {
             if (selected.equals(EVENT_TYPES[0])) {
                 mEventTypeParamData.setMiddleChoices(null);
                 mEventTypeParamData.setLastChoices(TAG_EVENT_FORMAT);

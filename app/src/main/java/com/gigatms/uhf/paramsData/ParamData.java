@@ -33,6 +33,7 @@ public class ParamData {
         EDIT_TEXT_WITH_TITLE,
 
         TS100_EVENT_TYPES_PARAM,
+        INTERCHANGEABLE_VIEW,
         ;
 
     }

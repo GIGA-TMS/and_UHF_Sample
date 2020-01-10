@@ -3,22 +3,23 @@ package com.gigatms.uhf.deviceControl;
 import android.os.Bundle;
 
 import com.gigatms.CommunicationType;
-import com.gigatms.DecodedTagData;
 import com.gigatms.TS800;
-import com.gigatms.TagInformationFormat;
 import com.gigatms.UHFCallback;
 import com.gigatms.uhf.DeviceControlFragment;
 import com.gigatms.uhf.GeneralCommandItem;
+import com.gigatms.uhf.Toaster;
 import com.gigatms.uhf.paramsData.CheckboxListParamData;
 import com.gigatms.uhf.paramsData.EditTextParamData;
 import com.gigatms.uhf.paramsData.EditTextTitleParamData;
 import com.gigatms.uhf.paramsData.EventTypesParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
+import com.gigatms.uhf.paramsData.SeekBarTitleParamData;
 import com.gigatms.uhf.paramsData.SpinnerParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
 import com.gigatms.parameters.ActiveMode;
 import com.gigatms.parameters.BuzzerAction;
 import com.gigatms.parameters.BuzzerOperationMode;
+import com.gigatms.parameters.DecodedTagData;
 import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
 import com.gigatms.parameters.MemoryBank;
@@ -27,6 +28,7 @@ import com.gigatms.parameters.RfSensitivityLevel;
 import com.gigatms.parameters.ScanMode;
 import com.gigatms.parameters.Session;
 import com.gigatms.parameters.State;
+import com.gigatms.parameters.TagInformationFormat;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
 import com.gigatms.parameters.TriggerType;
@@ -34,6 +36,9 @@ import com.gigatms.parameters.event.BaseTagEvent;
 import com.gigatms.parameters.event.TagPresentedEvent;
 import com.gigatms.tools.GTool;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -42,6 +47,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static android.widget.Toast.LENGTH_LONG;
 import static com.gigatms.parameters.ActiveMode.COMMAND;
 import static com.gigatms.parameters.ActiveMode.READ;
 import static com.gigatms.parameters.OutputInterface.DEFAULT;
@@ -75,8 +81,10 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mScanModeCommand;
     private GeneralCommandItem mCommandTrigger;
     private GeneralCommandItem mEventTypeCommand;
+    private GeneralCommandItem mRemoteHostCommand;
     private GeneralCommandItem mSsidPasswordCommand;
     private GeneralCommandItem mSsidPasswordIpCommand;
+    private GeneralCommandItem mWiFiMacAddressCommand;
 
     private static final String TAG = TS800DeviceControlFragment.class.getSimpleName();
 
@@ -375,6 +383,32 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mEventTypeCommand.getPosition()));
                 onUpdateLog(TAG, "didGetEventType: " + stringBuilder.toString());
             }
+
+            @Override
+            public void didGetRemoteHost(int connectTimeout, InetSocketAddress socketAddress) {
+                if (socketAddress != null) {
+                    SeekBarTitleParamData timeout = (SeekBarTitleParamData) mRemoteHostCommand.getViewDataArray()[0];
+                    EditTextTitleParamData ip = (EditTextTitleParamData) mRemoteHostCommand.getViewDataArray()[1];
+                    EditTextTitleParamData port = (EditTextTitleParamData) mRemoteHostCommand.getViewDataArray()[2];
+                    timeout.setSelected(connectTimeout);
+                    String ipString = socketAddress.getAddress().getHostAddress();
+                    ip.setSelected(ipString);
+                    String portString = "" + socketAddress.getPort();
+                    port.setSelected(portString);
+                    mRecyclerView.post(() -> mAdapter.notifyItemChanged(mRemoteHostCommand.getPosition()));
+                    onUpdateLog(TAG, "didGetRemoteHost"
+                            + "\n\tConnect Timeout: " + (timeout.getSelected() == 0 ? "0 (Stay Connected)" : "" + timeout.getSelected())
+                            + "\n\tIP: " + ipString
+                            + "\n\tPort: " + portString);
+                } else {
+                    onUpdateLog(TAG, "didGetRemoteHost: No Remote Host!");
+                }
+            }
+
+            @Override
+            public void didGetWiFiMacAddress(String macAddress) {
+                onUpdateLog(TAG, "didGetWiFiMacAddress: " + macAddress);
+            }
         };
 
     }
@@ -397,8 +431,15 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
         newScanModeCommand();
         newCommandTrigger();
         newEventTypeCommand();
+        newRemoteHostCommand();
         newSsidPasswordCommand();
         newSsidPasswordIpCommand();
+        newWiFiMacAddressCommand();
+    }
+
+    @Override
+    protected void onNewB2ECommands() {
+        //TS800 doesn't have B2E command
     }
 
     @Override
@@ -434,10 +475,17 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mControlBuzzerCommand);
         mAdapter.add(mIoStateCommand);
         mAdapter.add(mOutputInterfaceCommand);
+        mAdapter.add(mRemoteHostCommand);
         if (!mUhf.getCommunicationType().equals(CommunicationType.TCP)) {
             mAdapter.add(mSsidPasswordCommand);
             mAdapter.add(mSsidPasswordIpCommand);
         }
+        mAdapter.add(mWiFiMacAddressCommand);
+    }
+
+    @Override
+    protected void onShowB2ECommands() {
+        //TS800 doesn't have B2E command
     }
 
     @Override
@@ -686,6 +734,49 @@ public class TS800DeviceControlFragment extends DeviceControlFragment {
             EditTextTitleParamData password = (EditTextTitleParamData) mSsidPasswordCommand.getViewDataArray()[1];
             ((TS800) mUhf).setWifiSettings(ssid.getSelected(), password.getSelected());
         });
+    }
+
+    private void newWiFiMacAddressCommand() {
+        mWiFiMacAddressCommand = new GeneralCommandItem("Get Wi-Fi Mac Address", null, "Get");
+        mWiFiMacAddressCommand.setRightOnClickListener((view) -> ((TS800) mUhf).getWiFiMacAddress());
+    }
+
+    private void newRemoteHostCommand() {
+        mRemoteHostCommand = new GeneralCommandItem("Get/Set Remote Host"
+                , new SeekBarTitleParamData("Connect Timeout(100ms)", 0, 7)
+                , new EditTextTitleParamData("IP", "XXX.XXX.XXX.XXX")
+                , new EditTextTitleParamData("Port", "1111"));
+        mRemoteHostCommand.setLeftOnClickListener(v -> ((TS800) mUhf).getRemoteHost());
+        mRemoteHostCommand.setRightOnClickListener(v -> new Thread(() -> {
+            try {
+                SeekBarTitleParamData connectTimeout = (SeekBarTitleParamData) mRemoteHostCommand.getViewDataArray()[0];
+                EditTextTitleParamData ip = (EditTextTitleParamData) mRemoteHostCommand.getViewDataArray()[1];
+                EditTextTitleParamData port = (EditTextTitleParamData) mRemoteHostCommand.getViewDataArray()[2];
+                if (GTool.isDigital(port.getSelected()) && !port.getSelected().equals("") && !ip.getSelected().equals("")) {
+                    InetSocketAddress inetSocketAddress = new InetSocketAddress(InetAddress.getByName(ip.getSelected()), Integer.parseInt(port.getSelected()));
+                    ((TS800) mUhf).setRemoteHost((byte) connectTimeout.getSelected(), inetSocketAddress);
+                } else if (port.getSelected().equals("") && ip.getSelected().equals("")) {
+                    ((TS800) mUhf).setRemoteHost(0, null);
+                } else if (port.getSelected().equals("")) {
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> Toaster.showToast(getContext(), "Please fill the Port!", LENGTH_LONG));
+                    }
+                } else if (ip.getSelected().equals("")) {
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> Toaster.showToast(getContext(), "Please fill the IP!", LENGTH_LONG));
+                    }
+                } else {
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> Toaster.showToast(getContext(), "Port should be integer", LENGTH_LONG));
+                    }
+                }
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> Toaster.showToast(getContext(), e.getMessage(), LENGTH_LONG));
+                }
+            }
+        }).start());
     }
 
     private void newSsidPasswordIpCommand() {
