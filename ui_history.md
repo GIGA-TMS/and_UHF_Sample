@@ -1,4 +1,4 @@
-# V 2.0.2 
+# V 2.0.2 (SDK V2.2.0)
 Influence Products: TS100, TS800, UR0250, PWD100, MU400H
 
 ## TS100, TS100A-00, Main: ROM-T1894 V1.09r5(1911260), BLE: ROM-T1857 V1.02R4   
@@ -33,12 +33,6 @@ Influence Products: TS100, TS800, UR0250, PWD100, MU400H
 * Get/Set RemoteHost
 * GetWiFiMacAddress
 
-## PWD100, FW not release yet!
-### Advance Page
-#### ADD
-* Get/Set RemoteHost
-* GetWiFiMacAddress
-
 ## MU400H, MU400H-00 ROM-T1870 V1.00r8(1912310)
 ### Read/Write Page
 #### ADD
@@ -52,3 +46,14 @@ Influence Products: TS100, TS800, UR0250, PWD100, MU400H
 * Get/Set Post Data Delimiter: CARRIAGE -> CR
 * Get/Set Post Data Delimiter: LINE -> LF 
 * Get/Set Post Data Delimiter: TAD -> TAB 
+
+## NR800, UR800-00 ROM-T1906 V1.00R0(1906121)
+### Advance Page
+#### Adjust
+* Show <CR> while "Enter Key" is typed in Get/Set Prefix, Suffix and TID Delimiter Block 
+
+## PWD100, FW not release yet!
+### Advance Page
+#### ADD
+* Get/Set RemoteHost
+* GetWiFiMacAddress

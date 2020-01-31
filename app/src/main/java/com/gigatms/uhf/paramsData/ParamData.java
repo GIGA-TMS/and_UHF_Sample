@@ -26,6 +26,7 @@ public class ParamData {
         SEEK_BAR,
         EDIT_TEXT,
 
+        ASCII_EDIT_TEXT,
 
         SPINNER_WITH_TITLE,
         SEEK_BAR_WITH_TITLE,

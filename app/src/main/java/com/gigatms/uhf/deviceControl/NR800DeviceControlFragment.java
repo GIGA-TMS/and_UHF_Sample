@@ -1,13 +1,14 @@
 package com.gigatms.uhf.deviceControl;
 
 import android.os.Bundle;
+import android.widget.Toast;
 
-import com.gigatms.parameters.DecodedTagData;
 import com.gigatms.NR800;
-import com.gigatms.parameters.TagInformationFormat;
 import com.gigatms.UHFCallback;
 import com.gigatms.uhf.DeviceControlFragment;
 import com.gigatms.uhf.GeneralCommandItem;
+import com.gigatms.uhf.Toaster;
+import com.gigatms.uhf.paramsData.ASCIIEditTextParamData;
 import com.gigatms.uhf.paramsData.EditTextParamData;
 import com.gigatms.uhf.paramsData.EventTypesParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
@@ -16,6 +17,7 @@ import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
 import com.gigatms.parameters.ActiveMode;
 import com.gigatms.parameters.BuzzerAction;
 import com.gigatms.parameters.BuzzerOperationMode;
+import com.gigatms.parameters.DecodedTagData;
 import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
 import com.gigatms.parameters.MemoryBank;
@@ -23,6 +25,7 @@ import com.gigatms.parameters.RfSensitivityLevel;
 import com.gigatms.parameters.ScanMode;
 import com.gigatms.parameters.Session;
 import com.gigatms.parameters.State;
+import com.gigatms.parameters.TagInformationFormat;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
 import com.gigatms.parameters.event.BaseTagEvent;
@@ -308,27 +311,27 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didGetPrefix(String prefix) {
-                EditTextParamData prefixData = (EditTextParamData) mPrefixCommand.getViewDataArray()[0];
-                prefixData.setSelected(prefix);
+            public void didGetPrefix(byte[] asciiPrefix) {
+                ASCIIEditTextParamData prefixData = (ASCIIEditTextParamData) mPrefixCommand.getViewDataArray()[0];
+                prefixData.setSelected(asciiPrefix);
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mPrefixCommand.getPosition()));
-                onUpdateLog(TAG, "didGetPrefix: " + prefix);
+                onUpdateLog(TAG, "didGetPrefix: " + GTool.bytesToHexString(asciiPrefix, " "));
             }
 
             @Override
-            public void didGetSuffix(String suffix) {
-                EditTextParamData suffixData = (EditTextParamData) mSuffixCommand.getViewDataArray()[0];
-                suffixData.setSelected(suffix);
+            public void didGetSuffix(byte[] asciiSuffix) {
+                ASCIIEditTextParamData suffixData = (ASCIIEditTextParamData) mSuffixCommand.getViewDataArray()[0];
+                suffixData.setSelected(asciiSuffix);
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mSuffixCommand.getPosition()));
-                onUpdateLog(TAG, "didGetSuffix: " + suffix);
+                onUpdateLog(TAG, "didGetSuffix: " + GTool.bytesToHexString(asciiSuffix, " "));
             }
 
             @Override
-            public void didGetTidDelimiter(Character character) {
-                EditTextParamData tidDelimiter = (EditTextParamData) mTidDelimiterCommand.getViewDataArray()[0];
-                tidDelimiter.setSelected(character == null ? "" : character.toString());
+            public void didGetTidDelimiter(Byte asciiValue) {
+                ASCIIEditTextParamData tidDelimiter = (ASCIIEditTextParamData) mTidDelimiterCommand.getViewDataArray()[0];
+                tidDelimiter.setSelected(asciiValue == (byte) 0xFF ? new byte[0] : new byte[]{asciiValue});
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTidDelimiterCommand.getPosition()));
-                onUpdateLog(TAG, "didGetTidDelimiter: " + (character == null ? "" : character));
+                onUpdateLog(TAG, "didGetTidDelimiter: " + GTool.bytesToHexString(new byte[]{asciiValue}));
             }
 
             @Override
@@ -490,9 +493,9 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
 
     private void newPrefixCommand() {
         mPrefixCommand = new GeneralCommandItem("Get/Set Prefix"
-                , new EditTextParamData("Prefix"));
+                , new ASCIIEditTextParamData("Prefix"));
         mPrefixCommand.setRightOnClickListener(v -> {
-            EditTextParamData prefix = (EditTextParamData) mPrefixCommand.getViewDataArray()[0];
+            ASCIIEditTextParamData prefix = (ASCIIEditTextParamData) mPrefixCommand.getViewDataArray()[0];
             ((NR800) mUhf).setPrefix(prefix.getSelected());
         });
         mPrefixCommand.setLeftOnClickListener(v -> ((NR800) mUhf).getPrefix());
@@ -500,9 +503,9 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
 
     private void newSuffixCommand() {
         mSuffixCommand = new GeneralCommandItem("Get/Set Suffix"
-                , new EditTextParamData("Suffix"));
+                , new ASCIIEditTextParamData("Suffix"));
         mSuffixCommand.setRightOnClickListener(v -> {
-            EditTextParamData prefix = (EditTextParamData) mSuffixCommand.getViewDataArray()[0];
+            ASCIIEditTextParamData prefix = (ASCIIEditTextParamData) mSuffixCommand.getViewDataArray()[0];
             ((NR800) mUhf).setSuffix(prefix.getSelected());
         });
         mSuffixCommand.setLeftOnClickListener(v -> ((NR800) mUhf).getSuffix());
@@ -510,13 +513,15 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
 
     private void newTidDelimiterCommand() {
         mTidDelimiterCommand = new GeneralCommandItem("Get/Set TID Delimiter"
-                , new EditTextParamData("TID Delimiter"));
+                , new ASCIIEditTextParamData("TID Delimiter"));
         mTidDelimiterCommand.setRightOnClickListener(v -> {
-            EditTextParamData prefix = (EditTextParamData) mTidDelimiterCommand.getViewDataArray()[0];
-            if (prefix.getSelected() != null && prefix.getSelected().length() != 0) {
-                ((NR800) mUhf).setTidDelimiter(prefix.getSelected().charAt(0));
+            ASCIIEditTextParamData tidDelimiter = (ASCIIEditTextParamData) mTidDelimiterCommand.getViewDataArray()[0];
+            if (tidDelimiter.getSelected() != null & tidDelimiter.getSelected().length == 1) {
+                ((NR800) mUhf).setTidDelimiter(tidDelimiter.getSelected()[0]);
+            } else if (tidDelimiter.getSelected() == null || tidDelimiter.getSelected().length == 0) {
+                ((NR800) mUhf).setTidDelimiter((byte) 0xFF);
             } else {
-                ((NR800) mUhf).setTidDelimiter(null);
+                Toaster.showToast(getContext(), "MAX Length is 1!", Toast.LENGTH_LONG);
             }
         });
         mTidDelimiterCommand.setLeftOnClickListener(v -> ((NR800) mUhf).getTidDelimiter());

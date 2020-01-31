@@ -38,6 +38,12 @@ Influence Products: TS100, TS800, UR0250, PWD100, MU400H
 * com.gigatms.DecodedTagData -> com.gigatms.parameters.DecodedTagData
 * com.gigatms.TagInformationFormat -> com.gigatms.parameters.TagInformationFormat
 
+## NR800, UR800-00 ROM-T1906 V1.00R0(1906121)
+#### Refactor
+* setPrefix(String keyboardData) -> setPrefix(byte[] keyboardData)
+* setSuffix(String keyboardData) -> setSuffix(byte[] keyboardData)
+* setTidDelimiter(Character keyboardData) -> setTidDelimiter(Byte keyboardData)
+
 ## PWD100, FW not release yet!
 #### ADD
 * getWiFiMacAddress

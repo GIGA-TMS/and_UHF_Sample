@@ -32,13 +32,13 @@ import com.gigatms.TS800;
 import com.gigatms.UHFCallback;
 import com.gigatms.UHFDevice;
 import com.gigatms.UR0250;
+import com.gigatms.uhf.paramsData.EditTextTitleParamData;
+import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
 import com.gigatms.exceptions.ErrorParameterException;
 import com.gigatms.parameters.LockAction;
 import com.gigatms.parameters.MemoryBank;
 import com.gigatms.tools.GLog;
 import com.gigatms.tools.GTool;
-import com.gigatms.uhf.paramsData.EditTextTitleParamData;
-import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import java.util.Arrays;
@@ -438,9 +438,6 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
                 + Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
         if (getActivity() != null) {
             getActivity().runOnUiThread(() -> updateConnectionViews(connectState));
-        }
-        if (connectState.equals(ConnectionState.CONNECTED)) {
-
         }
         onUpdateDebugLog(TAG, "didUpdateConnection: " + mUhf.getDeviceID() + ": " + connectState.name());
     }

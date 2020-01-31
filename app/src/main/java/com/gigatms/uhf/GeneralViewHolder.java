@@ -17,19 +17,21 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.gigatms.uhf.paramsData.ASCIIEditTextParamData;
 import com.gigatms.uhf.paramsData.CheckBoxParamData;
 import com.gigatms.uhf.paramsData.CheckboxListParamData;
 import com.gigatms.uhf.paramsData.EditTextParamData;
 import com.gigatms.uhf.paramsData.EditTextTitleParamData;
 import com.gigatms.uhf.paramsData.EventTypesParamData;
+import com.gigatms.uhf.paramsData.InterchangeableParamData;
 import com.gigatms.uhf.paramsData.ParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
 import com.gigatms.uhf.paramsData.SeekBarTitleParamData;
 import com.gigatms.uhf.paramsData.SpinnerParamData;
 import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
-import com.gigatms.uhf.paramsData.InterchangeableParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerTitleParamData;
+import com.gigatms.uhf.view.ASCIIEditText;
 
 import java.util.List;
 
@@ -70,7 +72,7 @@ public class GeneralViewHolder extends RecyclerView.ViewHolder {
                 setSpinnerView((SpinnerParamData) viewData);
                 break;
             case CHECKBOX_LIST:
-                setCheckboxLsitView((CheckboxListParamData) viewData);
+                setCheckboxListView((CheckboxListParamData) viewData);
                 break;
             case CHECKBOX:
                 setCheckboxView((CheckBoxParamData) viewData);
@@ -101,6 +103,10 @@ public class GeneralViewHolder extends RecyclerView.ViewHolder {
                 break;
             case INTERCHANGEABLE_VIEW:
                 setInterchangeableView((InterchangeableParamData) viewData);
+                break;
+            case ASCII_EDIT_TEXT:
+                setAsciiEditTextView((ASCIIEditTextParamData) viewData);
+                break;
             default:
                 break;
         }
@@ -264,7 +270,31 @@ public class GeneralViewHolder extends RecyclerView.ViewHolder {
         mTableLayout.addView(editText);
     }
 
-    private void setCheckboxLsitView(CheckboxListParamData checkboxListParamData) {
+    private void setAsciiEditTextView(ASCIIEditTextParamData asciiEditTextParamData) {
+        ASCIIEditText asciiEditText = new ASCIIEditText(itemView.getContext());
+        asciiEditText.setHint(asciiEditTextParamData.getHint());
+        asciiEditText.removeTextChangedListener(null);
+        asciiEditText.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                asciiEditTextParamData.setSelected(asciiEditText.getText().toString());
+            }
+        });
+        asciiEditText.setText(asciiEditTextParamData.getSelected());
+        mTableLayout.addView(asciiEditText);
+    }
+
+    private void setCheckboxListView(CheckboxListParamData checkboxListParamData) {
         for (final Object object : checkboxListParamData.getDataSet()) {
             final CheckBox checkBox = new CheckBox(itemView.getContext());
             checkBox.setText(((Enum) object).name());
