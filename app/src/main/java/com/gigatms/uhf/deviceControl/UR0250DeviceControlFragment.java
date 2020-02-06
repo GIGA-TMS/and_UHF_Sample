@@ -22,6 +22,7 @@ import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
 import com.gigatms.parameters.MemoryBank;
 import com.gigatms.parameters.RfSensitivityLevel;
+import com.gigatms.parameters.RxDecodeType;
 import com.gigatms.parameters.ScanMode;
 import com.gigatms.parameters.Session;
 import com.gigatms.parameters.State;
@@ -60,6 +61,7 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
 
     private GeneralCommandItem mRfPowerCommand;
     private GeneralCommandItem mRfSensitivityCommand;
+    private GeneralCommandItem mRxDecodeTypeCommand;
     private GeneralCommandItem mSessionTargetCommand;
     private GeneralCommandItem mQCommand;
     private GeneralCommandItem mFrequencyCommand;
@@ -140,6 +142,14 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
                 viewData.setSelected(sensitivityValue);
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mRfSensitivityCommand.getPosition()));
                 onUpdateLog(TAG, "didGetRfSensitivity: " + sensitivity.name());
+            }
+
+            @Override
+            public void didGetRxDecode(RxDecodeType rxDecodeType) {
+                SpinnerParamData rxDecodeViewData = (SpinnerParamData) mRxDecodeTypeCommand.getViewDataArray()[0];
+                rxDecodeViewData.setSelected(rxDecodeType);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mRxDecodeTypeCommand.getPosition()));
+                onUpdateLog(TAG, "didGetRxDecode: " + rxDecodeType.name());
             }
 
             @Override
@@ -414,6 +424,7 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
     protected void onNewSettingCommands() {
         newRfPowerCommand();
         newRfSensitivityCommand();
+        newRxDecodeTypeCommand();
         newSessionTargetCommand();
         newQCommand();
         newFrequencyCommand();
@@ -457,6 +468,7 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
     protected void onShowSettingViews() {
         mAdapter.add(mRfPowerCommand);
         mAdapter.add(mRfSensitivityCommand);
+        mAdapter.add(mRxDecodeTypeCommand);
         mAdapter.add(mSessionTargetCommand);
         mAdapter.add(mQCommand);
         mAdapter.add(mFrequencyCommand);
@@ -620,6 +632,16 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         mRfSensitivityCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mRfSensitivityCommand.getViewDataArray()[0];
             mUhf.setRfSensitivity(mTemp, RfSensitivityLevel.getSensitivityFrom(viewData.getSelected()));
+        });
+    }
+
+    private void newRxDecodeTypeCommand() {
+        mRxDecodeTypeCommand = new GeneralCommandItem("Get/Set Rx Decode"
+                , new SpinnerParamData<>(RxDecodeType.class));
+        mRxDecodeTypeCommand.setLeftOnClickListener(v -> mUhf.getRxDecode(mTemp));
+        mRxDecodeTypeCommand.setRightOnClickListener(v -> {
+            SpinnerParamData viewData = (SpinnerParamData) mRxDecodeTypeCommand.getViewDataArray()[0];
+            mUhf.setRxDecode(mTemp, (RxDecodeType) viewData.getSelected());
         });
     }
 

@@ -9,7 +9,6 @@ import android.content.pm.PackageManager;
 import android.hardware.usb.UsbManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -21,6 +20,7 @@ import com.gigatms.BaseScanner;
 import com.gigatms.CommunicationType;
 import com.gigatms.UHF.UhfClassVersion;
 import com.gigatms.UHFScanner;
+import com.gigatms.tools.GLog;
 import com.gigatms.uhf.deviceControl.MU400HDeviceControlFragment;
 import com.gigatms.uhf.deviceControl.NR800DeviceControlFragment;
 import com.gigatms.uhf.deviceControl.PWD100DeviceControlFragment;
@@ -28,7 +28,6 @@ import com.gigatms.uhf.deviceControl.TS100ADeviceControlFragment;
 import com.gigatms.uhf.deviceControl.TS100DeviceControlFragment;
 import com.gigatms.uhf.deviceControl.TS800DeviceControlFragment;
 import com.gigatms.uhf.deviceControl.UR0250DeviceControlFragment;
-import com.gigatms.tools.GLog;
 
 import java.util.Arrays;
 import java.util.Objects;

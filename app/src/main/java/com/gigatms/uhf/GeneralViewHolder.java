@@ -32,10 +32,12 @@ import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerTitleParamData;
 import com.gigatms.uhf.view.ASCIIEditText;
+import com.gigatms.tools.GLog;
 
 import java.util.List;
 
 public class GeneralViewHolder extends RecyclerView.ViewHolder {
+    private static final String TAG = GeneralViewHolder.class.getSimpleName();
     private Button mBtnRight;
     private TextView mTvTitle;
     private Button mBtnLeft;
@@ -120,7 +122,6 @@ public class GeneralViewHolder extends RecyclerView.ViewHolder {
         if (editText.getTag() instanceof TextWatcher) {
             editText.removeTextChangedListener((TextWatcher) editText.getTag());
         }
-        editText.removeTextChangedListener(null);
         TextWatcher watcher = new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -273,22 +274,9 @@ public class GeneralViewHolder extends RecyclerView.ViewHolder {
     private void setAsciiEditTextView(ASCIIEditTextParamData asciiEditTextParamData) {
         ASCIIEditText asciiEditText = new ASCIIEditText(itemView.getContext());
         asciiEditText.setHint(asciiEditTextParamData.getHint());
-        asciiEditText.removeTextChangedListener(null);
-        asciiEditText.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                asciiEditTextParamData.setSelected(asciiEditText.getText().toString());
-            }
+        asciiEditText.setOnTextChangedListener(text -> {
+            GLog.v(TAG, "onTextChanged" + text);
+            asciiEditTextParamData.setSelected(text);
         });
         asciiEditText.setText(asciiEditTextParamData.getSelected());
         mTableLayout.addView(asciiEditText);

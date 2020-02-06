@@ -3,7 +3,6 @@ package com.gigatms.uhf.view;
 import android.content.Context;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.util.AttributeSet;
 
 import androidx.appcompat.widget.AppCompatEditText;
 
@@ -12,20 +11,19 @@ import com.gigatms.tools.GLog;
 public class ASCIIEditText extends AppCompatEditText {
     private static final String TAG = ASCIIEditText.class.getSimpleName();
     private TextWatcher mWatcher;
+    private OnTextChangedListener mOnTextChangedListener;
+
+    public interface OnTextChangedListener {
+        void onTextChanged(String text);
+    }
 
     public ASCIIEditText(Context context) {
         super(context);
         initListener();
     }
 
-    public ASCIIEditText(Context context, AttributeSet attrs) {
-        super(context, attrs);
-        initListener();
-    }
-
-    public ASCIIEditText(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        initListener();
+    public void setOnTextChangedListener(OnTextChangedListener onTextChangedListener) {
+        mOnTextChangedListener = onTextChangedListener;
     }
 
     private void initListener() {
@@ -44,6 +42,7 @@ public class ASCIIEditText extends AppCompatEditText {
             public void afterTextChanged(Editable s) {
                 GLog.v(TAG, "afterTextChanged" + s.toString());
                 if (getText() != null && (getText().toString().contains("\n") || getText().toString().contains("\r"))) {
+                    removeTextChangedListener(mWatcher);
                     String stringData = getText().toString()
                             .replaceAll("\n", "<CR>")
                             .replaceAll("\r", "<LF>");
@@ -56,15 +55,13 @@ public class ASCIIEditText extends AppCompatEditText {
                         requestFocus();
                     }
                     setSelection(getText().toString().length());
+                    addTextChangedListener(mWatcher);
+                }
+                if (mOnTextChangedListener != null) {
+                    mOnTextChangedListener.onTextChanged(getText().toString());
                 }
             }
         };
-        addTextChangedListener(mWatcher);
-    }
-
-    @Override
-    public void removeTextChangedListener(TextWatcher watcher) {
-        super.removeTextChangedListener(watcher);
         addTextChangedListener(mWatcher);
     }
 
