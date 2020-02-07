@@ -24,6 +24,7 @@ import com.gigatms.parameters.DecodedTagData;
 import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
 import com.gigatms.parameters.KeyboardSimulation;
+import com.gigatms.parameters.LinkFrequency;
 import com.gigatms.parameters.MemoryBank;
 import com.gigatms.parameters.MemoryBankSelection;
 import com.gigatms.parameters.OutputInterface;
@@ -91,6 +92,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mRfSensitivityCommand;
     private GeneralCommandItem mRxDecodeTypeCommand;
     private GeneralCommandItem mSessionTargetCommand;
+    private GeneralCommandItem mLinkFrequencyCommand;
     private GeneralCommandItem mQCommand;
     private GeneralCommandItem mFrequencyCommand;
     private GeneralCommandItem mTagRemovedThresholdCommand;
@@ -177,15 +179,6 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didGetFrequencyList(final Set<Double> frequencyList) {
-                String frequencyData = Arrays.toString(frequencyList.toArray());
-                EditTextParamData selected = (EditTextParamData) mFrequencyCommand.getViewDataArray()[0];
-                selected.setSelected(frequencyData.replace("[", "").replace("]", ""));
-                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mFrequencyCommand.getPosition()));
-                onUpdateLog(TAG, "didGetFrequencyList:\n" + frequencyData);
-            }
-
-            @Override
             public void didGetSessionAndTarget(final Session session, final Target target) {
                 TwoSpinnerParamData viewData = (TwoSpinnerParamData) mSessionTargetCommand.getViewDataArray()[0];
                 viewData.setFirstSelected(session);
@@ -194,6 +187,23 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
                 onUpdateLog(TAG, "didGetSessionAndTarget:" +
                         "\n\tSession: " + session.name() +
                         "\n\tTarget: " + target.name());
+            }
+
+            @Override
+            public void didGetLinkFrequency(LinkFrequency linkFrequency) {
+                SpinnerParamData rxDecodeViewData = (SpinnerParamData) mLinkFrequencyCommand.getViewDataArray()[0];
+                rxDecodeViewData.setSelected(linkFrequency);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mLinkFrequencyCommand.getPosition()));
+                onUpdateLog(TAG, "didGetLinkFrequency: " + linkFrequency.name());
+            }
+
+            @Override
+            public void didGetFrequencyList(final Set<Double> frequencyList) {
+                String frequencyData = Arrays.toString(frequencyList.toArray());
+                EditTextParamData selected = (EditTextParamData) mFrequencyCommand.getViewDataArray()[0];
+                selected.setSelected(frequencyData.replace("[", "").replace("]", ""));
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mFrequencyCommand.getPosition()));
+                onUpdateLog(TAG, "didGetFrequencyList:\n" + frequencyData);
             }
 
             @Override
@@ -450,6 +460,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         newRfSensitivityCommand();
         newRxDecodeTypeCommand();
         newSessionTargetCommand();
+        newLinkFrequencyCommand();
         newQCommand();
         newFrequencyCommand();
         newTagRemovedThresholdCommand();
@@ -490,6 +501,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mRfSensitivityCommand);
         mAdapter.add(mRxDecodeTypeCommand);
         mAdapter.add(mSessionTargetCommand);
+        mAdapter.add(mLinkFrequencyCommand);
         mAdapter.add(mQCommand);
         mAdapter.add(mFrequencyCommand);
         mAdapter.add(mTagPresentedRepeatIntervalCommand);
@@ -767,6 +779,16 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         mRfSensitivityCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mRfSensitivityCommand.getViewDataArray()[0];
             mUhf.setRfSensitivity(mTemp, RfSensitivityLevel.getSensitivityFrom(viewData.getSelected()));
+        });
+    }
+
+    private void newLinkFrequencyCommand() {
+        mLinkFrequencyCommand = new GeneralCommandItem("Get/Set Link Frequency"
+                , new SpinnerParamData<>(LinkFrequency.class));
+        mLinkFrequencyCommand.setLeftOnClickListener(v -> mUhf.getLinkFrequency(mTemp));
+        mLinkFrequencyCommand.setRightOnClickListener(v -> {
+            SpinnerParamData viewData = (SpinnerParamData) mLinkFrequencyCommand.getViewDataArray()[0];
+            mUhf.setLinkFrequency(mTemp, (LinkFrequency) viewData.getSelected());
         });
     }
 

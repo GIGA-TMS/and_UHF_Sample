@@ -20,6 +20,7 @@ import com.gigatms.parameters.BuzzerOperationMode;
 import com.gigatms.parameters.DecodedTagData;
 import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
+import com.gigatms.parameters.LinkFrequency;
 import com.gigatms.parameters.MemoryBank;
 import com.gigatms.parameters.RfSensitivityLevel;
 import com.gigatms.parameters.RxDecodeType;
@@ -65,6 +66,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mRfSensitivityCommand;
     private GeneralCommandItem mRxDecodeTypeCommand;
     private GeneralCommandItem mSessionTargetCommand;
+    private GeneralCommandItem mLinkFrequencyCommand;
     private GeneralCommandItem mQCommand;
     private GeneralCommandItem mFrequencyCommand;
     private GeneralCommandItem mTagRemovedThresholdCommand;
@@ -151,6 +153,14 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
                 rxDecodeViewData.setSelected(rxDecodeType);
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mRxDecodeTypeCommand.getPosition()));
                 onUpdateLog(TAG, "didGetRxDecode: " + rxDecodeType.name());
+            }
+
+            @Override
+            public void didGetLinkFrequency(LinkFrequency linkFrequency) {
+                SpinnerParamData rxDecodeViewData = (SpinnerParamData) mLinkFrequencyCommand.getViewDataArray()[0];
+                rxDecodeViewData.setSelected(linkFrequency);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mLinkFrequencyCommand.getPosition()));
+                onUpdateLog(TAG, "didGetLinkFrequency: " + linkFrequency.name());
             }
 
             @Override
@@ -433,6 +443,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
         newRfSensitivityCommand();
         newRxDecodeTypeCommand();
         newSessionTargetCommand();
+        newLinkFrequencyCommand();
         newQCommand();
         newFrequencyCommand();
         newTagRemovedThresholdCommand();
@@ -472,6 +483,7 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mRfSensitivityCommand);
         mAdapter.add(mRxDecodeTypeCommand);
         mAdapter.add(mSessionTargetCommand);
+        mAdapter.add(mLinkFrequencyCommand);
         mAdapter.add(mQCommand);
         mAdapter.add(mFrequencyCommand);
         mAdapter.add(mTagPresentedRepeatIntervalCommand);
@@ -721,6 +733,16 @@ public class NR800DeviceControlFragment extends DeviceControlFragment {
         mRfSensitivityCommand.setRightOnClickListener(v -> {
             SeekBarParamData viewData = (SeekBarParamData) mRfSensitivityCommand.getViewDataArray()[0];
             mUhf.setRfSensitivity(mTemp, RfSensitivityLevel.getSensitivityFrom(viewData.getSelected()));
+        });
+    }
+
+    private void newLinkFrequencyCommand() {
+        mLinkFrequencyCommand = new GeneralCommandItem("Get/Set Link Frequency"
+                , new SpinnerParamData<>(LinkFrequency.class));
+        mLinkFrequencyCommand.setLeftOnClickListener(v -> mUhf.getLinkFrequency(mTemp));
+        mLinkFrequencyCommand.setRightOnClickListener(v -> {
+            SpinnerParamData viewData = (SpinnerParamData) mLinkFrequencyCommand.getViewDataArray()[0];
+            mUhf.setLinkFrequency(mTemp, (LinkFrequency) viewData.getSelected());
         });
     }
 
