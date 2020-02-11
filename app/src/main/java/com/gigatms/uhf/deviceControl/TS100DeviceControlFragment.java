@@ -447,14 +447,13 @@ public class TS100DeviceControlFragment extends DeviceControlFragment {
             @Override
             public void didReadTagEx(BaseTagData baseTagData) {
                 StringBuilder stringBuilder = new StringBuilder();
+                stringBuilder.append(baseTagData.getEpcHeader().name());
                 if (baseTagData instanceof SGTIN96TagData) {
-                    stringBuilder.append(EPC_SGTIN96.name());
                     stringBuilder.append("\n\tBarcode: ").append(baseTagData.getBarcode());
                     stringBuilder.append("\n\tFilter: ").append(((SGTIN96TagData) baseTagData).getFilter());
                     stringBuilder.append("\n\tCompanyPrefixLength: ").append(((SGTIN96TagData) baseTagData).getCompanyPrefixLength());
                     stringBuilder.append("\n\tSerial Number: ").append(((SGTIN96TagData) baseTagData).getSerialNumber());
                 } else if (baseTagData instanceof UDCTagData) {
-                    stringBuilder.append(EPC_SGTIN96.name());
                     stringBuilder.append("\n\tBarcode: ").append(baseTagData.getBarcode());
                 }
                 onUpdateLog(TAG, "didReadTagEx: " + stringBuilder.toString());
