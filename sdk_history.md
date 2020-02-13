@@ -1,5 +1,5 @@
 # 2.2.0
-Influence Products: TS100, TS800, UR0250, PWD100, MU400H
+Influence Products: TS100, TS800, UR0250, PWD100, MU400H, NR800
 
 ## TS100, TS100A-00, Main: ROM-T1894 V1.09r5(1911260), BLE: ROM-T1857 V1.02R4   
 #### ADD
@@ -10,6 +10,11 @@ Influence Products: TS100, TS800, UR0250, PWD100, MU400H
 * readTagEx with and without access password
 * getBarcodeReadFormat
 * setBarcodeReadFormat
+* setRxDecode
+* getRxDecode
+* setLinkFrequency
+* getLinkFrequency
+
 
 #### Refactor
 * com.gigatms.DecodedTagData -> com.gigatms.parameters.DecodedTagData
@@ -23,6 +28,10 @@ Influence Products: TS100, TS800, UR0250, PWD100, MU400H
 * getWiFiMacAddress
 * setRemoteHost
 * getRemoteHost
+* setRxDecode
+* getRxDecode
+* setLinkFrequency
+* getLinkFrequency
 
 #### Refactor
 * com.gigatms.DecodedTagData -> com.gigatms.parameters.DecodedTagData
@@ -33,6 +42,10 @@ Influence Products: TS100, TS800, UR0250, PWD100, MU400H
 * getWiFiMacAddress
 * setRemoteHost
 * getRemoteHost
+* setRxDecode
+* getRxDecode
+* setLinkFrequency
+* getLinkFrequency
 
 #### Refactor
 * com.gigatms.DecodedTagData -> com.gigatms.parameters.DecodedTagData
@@ -43,12 +56,20 @@ Influence Products: TS100, TS800, UR0250, PWD100, MU400H
 * setPrefix(String keyboardData) -> setPrefix(byte[] keyboardData)
 * setSuffix(String keyboardData) -> setSuffix(byte[] keyboardData)
 * setTidDelimiter(Character keyboardData) -> setTidDelimiter(Byte keyboardData)
+* setRxDecode
+* getRxDecode
+* setLinkFrequency
+* getLinkFrequency
 
 ## PWD100, FW not release yet!
 #### ADD
 * getWiFiMacAddress
 * setRemoteHost
 * getRemoteHost
+* setRxDecode
+* getRxDecode
+* setLinkFrequency
+* getLinkFrequency
 
 #### Refactor
 * com.gigatms.DecodedTagData -> com.gigatms.parameters.DecodedTagData
@@ -60,6 +81,10 @@ Influence Products: TS100, TS800, UR0250, PWD100, MU400H
 * readTagEx with and without access password
 * getBarcodeReadFormat
 * setBarcodeReadFormat
+* setRxDecode
+* getRxDecode
+* setLinkFrequency
+* getLinkFrequency
 
 #### Refactor
 * com.gigatms.DecodedTagData -> com.gigatms.parameters.DecodedTagData
