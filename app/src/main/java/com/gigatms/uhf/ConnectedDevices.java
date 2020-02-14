@@ -28,14 +28,14 @@ public class ConnectedDevices extends HashMap<String, BaseDevice> {
 
     @Override
     public BaseDevice put(String key, BaseDevice value) {
-        GLog.d(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
+        GLog.v(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
         GLog.d(TAG, "put: " + key);
         return super.put(key, value);
     }
 
     @Override
     public BaseDevice remove(Object key) {
-        GLog.d(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
+        GLog.v(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
         GLog.d(TAG, "remove: " + key);
         return super.remove(key);
     }
@@ -45,7 +45,7 @@ public class ConnectedDevices extends HashMap<String, BaseDevice> {
         Objects.requireNonNull(instance.get(deviceMacAddress)).disconnect();
         Objects.requireNonNull(instance.get(deviceMacAddress)).destroy();
         remove(deviceMacAddress);
-        GLog.d(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
+        GLog.v(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
     }
 
     @Override
@@ -56,6 +56,6 @@ public class ConnectedDevices extends HashMap<String, BaseDevice> {
             Objects.requireNonNull(instance.get(deviceMac)).destroy();
         }
         super.clear();
-        GLog.d(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
+        GLog.v(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
     }
 }

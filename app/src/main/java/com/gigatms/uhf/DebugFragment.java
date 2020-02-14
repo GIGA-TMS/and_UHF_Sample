@@ -10,9 +10,7 @@ public class DebugFragment extends Fragment {
 
     public interface DebugFragmentListener {
         void onUpdateDebugLog(String message);
-
         void onUpdateLog(String message);
-
         void onUpdateDebugInformation(String message, int resColor);
     }
 
@@ -20,15 +18,15 @@ public class DebugFragment extends Fragment {
         mDebugFragmentListener = debugFragmentListener;
     }
 
-    protected void onUpdateLog(String tag, String message) {
-        GLog.v(tag, message);
+    protected void onUpdateLog(String tag,String message) {
+        GLog.v(tag,message);
         if (mDebugFragmentListener != null) {
             mDebugFragmentListener.onUpdateLog(message);
         }
     }
 
-    protected void onUpdateDebugLog(String tag, String message) {
-        GLog.v(tag, message);
+    protected void onUpdateDebugLog(String tag,String message) {
+        GLog.v(tag,message);
         if (mDebugFragmentListener != null) {
             mDebugFragmentListener.onUpdateDebugLog(message);
         }
