@@ -191,13 +191,18 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
         newLockTagWithoutPassword();
         newKillTagWithPassword();
         newKillTagWithoutPassword();
+        onNewB2ECommands();
     }
+
+    protected abstract void onNewB2ECommands();
 
     protected abstract void onNewSettingCommands();
 
     protected abstract void onShowInventoryViews();
 
     protected abstract void onShowAdvanceViews();
+
+    protected abstract void onShowB2ECommands();
 
     private void onShowReadWriteTagViews() {
         mAdapter.add(mWriteEpcCommand);
@@ -206,6 +211,7 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
         mAdapter.add(mReadTagCommand);
         mAdapter.add(mWriteTagWithSelectedEpcCommand);
         mAdapter.add(mWriteTagCommand);
+        onShowB2ECommands();
         mAdapter.add(mLockTagWithPassword);
         mAdapter.add(mLockTagWithoutPassword);
         mAdapter.add(mKillTagWithPassword);
@@ -433,9 +439,6 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
         if (getActivity() != null) {
             getActivity().runOnUiThread(() -> updateConnectionViews(connectState));
         }
-        if (connectState.equals(ConnectionState.CONNECTED)) {
-
-        }
         onUpdateDebugLog(TAG, "didUpdateConnection: " + mUhf.getDeviceID() + ": " + connectState.name());
     }
 
@@ -512,7 +515,7 @@ public abstract class DeviceControlFragment extends DebugFragment implements Com
     @Override
     public void onPause() {
         super.onPause();
-        GLog.d(TAG, "onPause");
+        GLog.v(TAG, "onPause");
         getActivity().unregisterReceiver(mUsbReceiver);
         mUhf.setCommunicationCallback(null);
         mUhf.setUHFCallback(null);

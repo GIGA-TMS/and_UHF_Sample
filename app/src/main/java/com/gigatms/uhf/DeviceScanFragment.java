@@ -117,7 +117,7 @@ public class DeviceScanFragment extends BaseScanFragment {
     @Override
     public void onStart() {
         super.onStart();
-        GLog.d(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
+        GLog.v(TAG, Arrays.toString(ConnectedDevices.getInstance().keySet().toArray()));
         mSpnProduct.setSelection(0);
         ((UHFScanner) mBaseScanner).setClassVersion(UhfClassVersion.TS800);
         mSpnCommunicationType.setSelection(0);
@@ -140,7 +140,7 @@ public class DeviceScanFragment extends BaseScanFragment {
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
     }
-    
+
     @Override
     public void onResume() {
         super.onResume();

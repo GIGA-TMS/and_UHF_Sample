@@ -1,8 +1,7 @@
 package com.gigatms.uhf;
 
-import android.view.View;
-
 import androidx.annotation.Nullable;
+import android.view.View;
 
 import com.gigatms.uhf.paramsData.ParamData;
 

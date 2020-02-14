@@ -12,9 +12,9 @@ public class EventTypesParamData extends ParamData {
     private String mFirstSelect;
     private String mMiddleSelect;
     private Set<String> mLastSelect;
-    private OnFirstItemSelected mOnFirstItemSelected;
+    private OnFirstItemSelectedListener mOnFirstItemSelectedListener;
 
-    public interface OnFirstItemSelected {
+    public interface OnFirstItemSelectedListener {
         void onFirstItemSelected(String selected);
     }
 
@@ -48,8 +48,8 @@ public class EventTypesParamData extends ParamData {
 
     public void setFirstSelect(String firstSelect) {
         mFirstSelect = firstSelect;
-        if (mOnFirstItemSelected != null) {
-            mOnFirstItemSelected.onFirstItemSelected(mFirstSelect);
+        if (mOnFirstItemSelectedListener != null) {
+            mOnFirstItemSelectedListener.onFirstItemSelected(mFirstSelect);
         }
     }
 
@@ -77,7 +77,7 @@ public class EventTypesParamData extends ParamData {
         mLastSelect = lastSelect;
     }
 
-    public void setOnFirstItemSelected(OnFirstItemSelected onFirstItemSelected) {
-        mOnFirstItemSelected = onFirstItemSelected;
+    public void setOnFirstItemSelectedListener(OnFirstItemSelectedListener onFirstItemSelectedListener) {
+        mOnFirstItemSelectedListener = onFirstItemSelectedListener;
     }
 }

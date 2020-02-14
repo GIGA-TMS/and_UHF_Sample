@@ -3,27 +3,30 @@ package com.gigatms.uhf.deviceControl;
 import android.os.Bundle;
 
 import com.gigatms.CommunicationType;
-import com.gigatms.DecodedTagData;
-import com.gigatms.TagInformationFormat;
 import com.gigatms.UHFCallback;
 import com.gigatms.UR0250;
 import com.gigatms.uhf.DeviceControlFragment;
 import com.gigatms.uhf.GeneralCommandItem;
+import com.gigatms.uhf.Toaster;
 import com.gigatms.uhf.paramsData.CheckboxListParamData;
 import com.gigatms.uhf.paramsData.EditTextParamData;
 import com.gigatms.uhf.paramsData.EditTextTitleParamData;
 import com.gigatms.uhf.paramsData.EventTypesParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
+import com.gigatms.uhf.paramsData.SeekBarTitleParamData;
 import com.gigatms.uhf.paramsData.SpinnerParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
 import com.gigatms.parameters.ActiveMode;
+import com.gigatms.parameters.DecodedTagData;
 import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
 import com.gigatms.parameters.MemoryBank;
 import com.gigatms.parameters.RfSensitivityLevel;
+import com.gigatms.parameters.RxDecodeType;
 import com.gigatms.parameters.ScanMode;
 import com.gigatms.parameters.Session;
 import com.gigatms.parameters.State;
+import com.gigatms.parameters.TagInformationFormat;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
 import com.gigatms.parameters.TriggerType;
@@ -31,6 +34,9 @@ import com.gigatms.parameters.event.BaseTagEvent;
 import com.gigatms.parameters.event.TagPresentedEvent;
 import com.gigatms.tools.GTool;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -39,6 +45,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static android.widget.Toast.LENGTH_LONG;
 import static com.gigatms.parameters.ActiveMode.COMMAND;
 import static com.gigatms.parameters.ActiveMode.READ;
 import static com.gigatms.parameters.Session.SL;
@@ -54,6 +61,7 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
 
     private GeneralCommandItem mRfPowerCommand;
     private GeneralCommandItem mRfSensitivityCommand;
+    private GeneralCommandItem mRxDecodeTypeCommand;
     private GeneralCommandItem mSessionTargetCommand;
     private GeneralCommandItem mQCommand;
     private GeneralCommandItem mFrequencyCommand;
@@ -68,8 +76,10 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mScanModeCommand;
     private GeneralCommandItem mCommandTriggerCommand;
     private GeneralCommandItem mEventTypeCommand;
+    private GeneralCommandItem mRemoteHostCommand;
     private GeneralCommandItem mSsidPasswordCommand;
     private GeneralCommandItem mSsidPasswordIpCommand;
+    private GeneralCommandItem mWiFiMacAddressCommand;
 
     public static UR0250DeviceControlFragment newFragment(String devMacAddress) {
         Bundle args = new Bundle();
@@ -132,6 +142,14 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
                 viewData.setSelected(sensitivityValue);
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mRfSensitivityCommand.getPosition()));
                 onUpdateLog(TAG, "didGetRfSensitivity: " + sensitivity.name());
+            }
+
+            @Override
+            public void didGetRxDecode(RxDecodeType rxDecodeType) {
+                SpinnerParamData rxDecodeViewData = (SpinnerParamData) mRxDecodeTypeCommand.getViewDataArray()[0];
+                rxDecodeViewData.setSelected(rxDecodeType);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mRxDecodeTypeCommand.getPosition()));
+                onUpdateLog(TAG, "didGetRxDecode: " + rxDecodeType.name());
             }
 
             @Override
@@ -347,6 +365,32 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mEventTypeCommand.getPosition()));
                 onUpdateLog(TAG, "didGetEventType: " + stringBuilder.toString());
             }
+
+            @Override
+            public void didGetRemoteHost(int connectTimeout, InetSocketAddress socketAddress) {
+                if (socketAddress != null) {
+                    SeekBarTitleParamData timeout = (SeekBarTitleParamData) mRemoteHostCommand.getViewDataArray()[0];
+                    EditTextTitleParamData ip = (EditTextTitleParamData) mRemoteHostCommand.getViewDataArray()[1];
+                    EditTextTitleParamData port = (EditTextTitleParamData) mRemoteHostCommand.getViewDataArray()[2];
+                    timeout.setSelected(connectTimeout);
+                    String ipString = socketAddress.getAddress().getHostAddress();
+                    ip.setSelected(ipString);
+                    String portString = "" + socketAddress.getPort();
+                    port.setSelected(portString);
+                    mRecyclerView.post(() -> mAdapter.notifyItemChanged(mRemoteHostCommand.getPosition()));
+                    onUpdateLog(TAG, "didGetRemoteHost"
+                            + "\n\tConnect Timeout: " + (timeout.getSelected() == 0 ? "0 (Stay Connected)" : "" + timeout.getSelected())
+                            + "\n\tIP: " + ipString
+                            + "\n\tPort: " + portString);
+                } else {
+                    onUpdateLog(TAG, "didGetRemoteHost: No Remote Host!");
+                }
+            }
+
+            @Override
+            public void didGetWiFiMacAddress(String macAddress) {
+                onUpdateLog(TAG, "didGetWiFiMacAddress: " + macAddress);
+            }
         };
     }
 
@@ -365,14 +409,22 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         newScanModeCommand();
         newCommandTriggerCommand();
         newEventTypeCommand();
+        newRemoteHostCommand();
         newSsidPasswordCommand();
         newSsidPasswordIpCommand();
+        newWiFiMacAddressCommand();
+    }
+
+    @Override
+    protected void onNewB2ECommands() {
+        //UR0250 doesn't have B2E Command
     }
 
     @Override
     protected void onNewSettingCommands() {
         newRfPowerCommand();
         newRfSensitivityCommand();
+        newRxDecodeTypeCommand();
         newSessionTargetCommand();
         newQCommand();
         newFrequencyCommand();
@@ -399,16 +451,24 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mCommandTriggerCommand);
         mAdapter.add(mIoStateCommand);
         mAdapter.add(mEventTypeCommand);
+        mAdapter.add(mRemoteHostCommand);
         if (!mUhf.getCommunicationType().equals(CommunicationType.TCP)) {
             mAdapter.add(mSsidPasswordCommand);
             mAdapter.add(mSsidPasswordIpCommand);
         }
+        mAdapter.add(mWiFiMacAddressCommand);
+    }
+
+    @Override
+    protected void onShowB2ECommands() {
+        //UR0250 doesn't have B2E Command
     }
 
     @Override
     protected void onShowSettingViews() {
         mAdapter.add(mRfPowerCommand);
         mAdapter.add(mRfSensitivityCommand);
+        mAdapter.add(mRxDecodeTypeCommand);
         mAdapter.add(mSessionTargetCommand);
         mAdapter.add(mQCommand);
         mAdapter.add(mFrequencyCommand);
@@ -575,6 +635,16 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         });
     }
 
+    private void newRxDecodeTypeCommand() {
+        mRxDecodeTypeCommand = new GeneralCommandItem("Get/Set Rx Decode"
+                , new SpinnerParamData<>(RxDecodeType.class));
+        mRxDecodeTypeCommand.setLeftOnClickListener(v -> mUhf.getRxDecode(mTemp));
+        mRxDecodeTypeCommand.setRightOnClickListener(v -> {
+            SpinnerParamData viewData = (SpinnerParamData) mRxDecodeTypeCommand.getViewDataArray()[0];
+            mUhf.setRxDecode(mTemp, (RxDecodeType) viewData.getSelected());
+        });
+    }
+
     private void newRfPowerCommand() {
         mRfPowerCommand = new GeneralCommandItem("Get/Set RF Power"
                 , new SeekBarParamData(1, 27));
@@ -609,6 +679,43 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
         mCommandTriggerCommand.setLeftOnClickListener(v -> ((UR0250) mUhf).getCommandTriggerState());
     }
 
+    private void newRemoteHostCommand() {
+        mRemoteHostCommand = new GeneralCommandItem("Get/Set Remote Host"
+                , new SeekBarTitleParamData("Connect Timeout(100ms)", 0, 7)
+                , new EditTextTitleParamData("IP", "XXX.XXX.XXX.XXX")
+                , new EditTextTitleParamData("Port", "1111"));
+        mRemoteHostCommand.setLeftOnClickListener(v -> ((UR0250) mUhf).getRemoteHost());
+        mRemoteHostCommand.setRightOnClickListener(v -> new Thread(() -> {
+            try {
+                SeekBarTitleParamData connectTimeout = (SeekBarTitleParamData) mRemoteHostCommand.getViewDataArray()[0];
+                EditTextTitleParamData ip = (EditTextTitleParamData) mRemoteHostCommand.getViewDataArray()[1];
+                EditTextTitleParamData port = (EditTextTitleParamData) mRemoteHostCommand.getViewDataArray()[2];
+                if (GTool.isDigital(port.getSelected()) && !port.getSelected().equals("") && !ip.getSelected().equals("")) {
+                    InetSocketAddress inetSocketAddress = new InetSocketAddress(InetAddress.getByName(ip.getSelected()), Integer.parseInt(port.getSelected()));
+                    ((UR0250) mUhf).setRemoteHost((byte) connectTimeout.getSelected(), inetSocketAddress);
+                } else if (port.getSelected().equals("") && ip.getSelected().equals("")) {
+                    ((UR0250) mUhf).setRemoteHost(0, null);
+                } else if (port.getSelected().equals("")) {
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> Toaster.showToast(getContext(), "Please fill the Port!", LENGTH_LONG));
+                    }
+                } else if (ip.getSelected().equals("")) {
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> Toaster.showToast(getContext(), "Please fill the IP!", LENGTH_LONG));
+                    }
+                } else {
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> Toaster.showToast(getContext(), "Port should be integer", LENGTH_LONG));
+                    }
+                }
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> Toaster.showToast(getContext(), e.getMessage(), LENGTH_LONG));
+                }
+            }
+        }).start());
+    }
 
     private void newSsidPasswordCommand() {
         mSsidPasswordCommand = new GeneralCommandItem("Set WiFi Settings", null, "Set"
@@ -637,6 +744,11 @@ public class UR0250DeviceControlFragment extends DeviceControlFragment {
             EditTextTitleParamData subnetMask = (EditTextTitleParamData) mSsidPasswordIpCommand.getViewDataArray()[4];
             ((UR0250) mUhf).setWifiSettings(ssid.getSelected(), password.getSelected(), ip.getSelected(), gateway.getSelected(), subnetMask.getSelected());
         });
+    }
+
+    private void newWiFiMacAddressCommand() {
+        mWiFiMacAddressCommand = new GeneralCommandItem("Get Wi-Fi Mac Address", null, "Get");
+        mWiFiMacAddressCommand.setRightOnClickListener((view) -> ((UR0250) mUhf).getWiFiMacAddress());
     }
 
     private void newEventTypeCommand() {

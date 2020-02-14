@@ -32,7 +32,7 @@ public class CheckboxListParamData<E extends Enum<E>> extends ParamData {
     public void setSelected(Set<E> set) {
         mSelectedOrdinal = new HashSet<>();
         for (E e : set) {
-            GLog.d(TAG, e.name() + " ordinal " + e.ordinal());
+            GLog.v(TAG, e.name() + " ordinal " + e.ordinal());
             mSelectedOrdinal.add(e.ordinal());
         }
     }

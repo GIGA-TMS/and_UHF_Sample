@@ -28,6 +28,7 @@ import com.gigatms.tools.GLog;
 import io.fabric.sdk.android.Fabric;
 
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
+import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 import static androidx.core.content.PermissionChecker.PERMISSION_GRANTED;
 import static com.gigatms.uhf.BaseScanFragment.DEBUG;
@@ -35,7 +36,7 @@ import static com.gigatms.uhf.BaseScanFragment.DEBUG;
 public class MainActivity extends AppCompatActivity implements DebugFragment.DebugFragmentListener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
-    private final int REQUEST_COARSE_LOCATION = 99;
+    private final int REQUEST_FINE_LOCATION = 99;
 
     private Button mBtnDebug;
     private boolean mDebugMode = false;
@@ -100,15 +101,16 @@ public class MainActivity extends AppCompatActivity implements DebugFragment.Deb
 
     public void requestNeededPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (ContextCompat.checkSelfPermission(this, ACCESS_COARSE_LOCATION) != PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{ACCESS_COARSE_LOCATION, WRITE_EXTERNAL_STORAGE}, REQUEST_COARSE_LOCATION);
+
+            if (ContextCompat.checkSelfPermission(this, ACCESS_FINE_LOCATION) != PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{ACCESS_FINE_LOCATION, WRITE_EXTERNAL_STORAGE}, REQUEST_FINE_LOCATION);
             }
         }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (requestCode == REQUEST_COARSE_LOCATION) {
+        if (requestCode == REQUEST_FINE_LOCATION) {
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
     }

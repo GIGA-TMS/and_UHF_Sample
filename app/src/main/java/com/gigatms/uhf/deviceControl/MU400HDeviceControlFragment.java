@@ -2,45 +2,63 @@ package com.gigatms.uhf.deviceControl;
 
 import android.os.Bundle;
 
-import com.gigatms.DecodedTagData;
 import com.gigatms.MU400H;
-import com.gigatms.TagInformationFormat;
 import com.gigatms.UHFCallback;
 import com.gigatms.uhf.DeviceControlFragment;
 import com.gigatms.uhf.GeneralCommandItem;
+import com.gigatms.uhf.Toaster;
 import com.gigatms.uhf.paramsData.CheckboxListParamData;
 import com.gigatms.uhf.paramsData.EditTextParamData;
+import com.gigatms.uhf.paramsData.EditTextTitleParamData;
 import com.gigatms.uhf.paramsData.EventTypesParamData;
+import com.gigatms.uhf.paramsData.InterchangeableParamData;
+import com.gigatms.uhf.paramsData.ParamData;
 import com.gigatms.uhf.paramsData.SeekBarParamData;
 import com.gigatms.uhf.paramsData.SpinnerParamData;
+import com.gigatms.uhf.paramsData.SpinnerTitleParamData;
 import com.gigatms.uhf.paramsData.TwoSpinnerParamData;
+import com.gigatms.exceptions.ErrorParameterException;
 import com.gigatms.parameters.ActiveMode;
+import com.gigatms.parameters.BarcodeFormat;
+import com.gigatms.parameters.DecodedTagData;
 import com.gigatms.parameters.IONumber;
 import com.gigatms.parameters.IOState;
 import com.gigatms.parameters.KeyboardSimulation;
+import com.gigatms.parameters.LinkFrequency;
 import com.gigatms.parameters.MemoryBank;
 import com.gigatms.parameters.MemoryBankSelection;
 import com.gigatms.parameters.OutputInterface;
 import com.gigatms.parameters.PostDataDelimiter;
 import com.gigatms.parameters.RfSensitivityLevel;
+import com.gigatms.parameters.RxDecodeType;
 import com.gigatms.parameters.Session;
 import com.gigatms.parameters.TagDataEncodeType;
+import com.gigatms.parameters.TagInformationFormat;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
+import com.gigatms.parameters.b2e.BaseTagData;
+import com.gigatms.parameters.b2e.CompanyPrefixLength;
+import com.gigatms.parameters.b2e.Filter;
+import com.gigatms.parameters.b2e.SGTIN96EASTagData;
+import com.gigatms.parameters.b2e.SGTIN96TagData;
+import com.gigatms.parameters.b2e.UDCTagData;
 import com.gigatms.parameters.event.BaseTagEvent;
 import com.gigatms.parameters.event.TagPresentedEvent;
 import com.gigatms.parameters.event.TagPresentedEventEx;
 import com.gigatms.tools.GTool;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static android.widget.Toast.LENGTH_LONG;
 import static com.gigatms.parameters.KeyboardSimulation.DISABLE;
 import static com.gigatms.parameters.KeyboardSimulation.HID_KEYBOARD;
 import static com.gigatms.parameters.MemoryBankSelection.EPC_ASCII;
@@ -50,6 +68,10 @@ import static com.gigatms.parameters.TagDataEncodeType.EAN_UPC;
 import static com.gigatms.parameters.TagDataEncodeType.EAN_UPC_EAS;
 import static com.gigatms.parameters.TagDataEncodeType.RAW_DATA;
 import static com.gigatms.parameters.TagDataEncodeType.UDC;
+import static com.gigatms.parameters.b2e.BaseTagData.EpcHeader.EPC_EAS;
+import static com.gigatms.parameters.b2e.BaseTagData.EpcHeader.EPC_SGTIN96;
+import static com.gigatms.parameters.b2e.BaseTagData.EpcHeader.EPC_UDC;
+import static com.gigatms.tools.GTool.isDigital;
 
 public class MU400HDeviceControlFragment extends DeviceControlFragment {
     private static final String TAG = MU400HDeviceControlFragment.class.getSimpleName();
@@ -61,9 +83,16 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mInventoryExCommand;
     private GeneralCommandItem mInventoryActiveMode;
 
+    private GeneralCommandItem mReadTagExWithPasswordCommand;
+    private GeneralCommandItem mReadTagExCommand;
+    private GeneralCommandItem mWriteTagExWithPasswordCommand;
+    private GeneralCommandItem mWriteTagExCommand;
+
     private GeneralCommandItem mRfPowerCommand;
     private GeneralCommandItem mRfSensitivityCommand;
+    private GeneralCommandItem mRxDecodeTypeCommand;
     private GeneralCommandItem mSessionTargetCommand;
+    private GeneralCommandItem mLinkFrequencyCommand;
     private GeneralCommandItem mQCommand;
     private GeneralCommandItem mFrequencyCommand;
     private GeneralCommandItem mTagRemovedThresholdCommand;
@@ -76,6 +105,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mPostDataDelimiterCommand;
     private GeneralCommandItem mMemoryBankSelectionCommand;
     private GeneralCommandItem mOutputInterfacesCommand;
+    private GeneralCommandItem mBarcodeReadFormatCommand;
 
     public static MU400HDeviceControlFragment newFragment(String devMacAddress) {
         Bundle args = new Bundle();
@@ -141,12 +171,11 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didGetFrequencyList(final Set<Double> frequencyList) {
-                String frequencyData = Arrays.toString(frequencyList.toArray());
-                EditTextParamData selected = (EditTextParamData) mFrequencyCommand.getViewDataArray()[0];
-                selected.setSelected(frequencyData.replace("[", "").replace("]", ""));
-                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mFrequencyCommand.getPosition()));
-                onUpdateLog(TAG, "didGetFrequencyList:\n" + frequencyData);
+            public void didGetRxDecode(RxDecodeType rxDecodeType) {
+                SpinnerParamData rxDecodeViewData = (SpinnerParamData) mRxDecodeTypeCommand.getViewDataArray()[0];
+                rxDecodeViewData.setSelected(rxDecodeType);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mRxDecodeTypeCommand.getPosition()));
+                onUpdateLog(TAG, "didGetRxDecode: " + rxDecodeType.name());
             }
 
             @Override
@@ -158,6 +187,23 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
                 onUpdateLog(TAG, "didGetSessionAndTarget:" +
                         "\n\tSession: " + session.name() +
                         "\n\tTarget: " + target.name());
+            }
+
+            @Override
+            public void didGetLinkFrequency(LinkFrequency linkFrequency) {
+                SpinnerParamData rxDecodeViewData = (SpinnerParamData) mLinkFrequencyCommand.getViewDataArray()[0];
+                rxDecodeViewData.setSelected(linkFrequency);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mLinkFrequencyCommand.getPosition()));
+                onUpdateLog(TAG, "didGetLinkFrequency: " + linkFrequency.name());
+            }
+
+            @Override
+            public void didGetFrequencyList(final Set<Double> frequencyList) {
+                String frequencyData = Arrays.toString(frequencyList.toArray());
+                EditTextParamData selected = (EditTextParamData) mFrequencyCommand.getViewDataArray()[0];
+                selected.setSelected(frequencyData.replace("[", "").replace("]", ""));
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mFrequencyCommand.getPosition()));
+                onUpdateLog(TAG, "didGetFrequencyList:\n" + frequencyData);
             }
 
             @Override
@@ -355,6 +401,29 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
                 mRecyclerView.post(() -> mAdapter.notifyItemChanged(mInventoryActiveMode.getPosition()));
                 onUpdateLog(TAG, "didGetInventoryActiveMode: " + activeMode.name());
             }
+
+            @Override
+            public void didGetBarcodeReadFormat(BarcodeFormat defaultFormat) {
+                SpinnerParamData selected = (SpinnerParamData) mBarcodeReadFormatCommand.getViewDataArray()[0];
+                selected.setSelected(defaultFormat);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mBarcodeReadFormatCommand.getPosition()));
+                onUpdateLog(TAG, "didGetBarcodeReadFormat: " + defaultFormat.name());
+            }
+
+            @Override
+            public void didReadTagEx(BaseTagData baseTagData) {
+                StringBuilder stringBuilder = new StringBuilder();
+                stringBuilder.append(baseTagData.getEpcHeader().name());
+                if (baseTagData instanceof SGTIN96TagData) {
+                    stringBuilder.append("\n\tBarcode: ").append(baseTagData.getBarcode());
+                    stringBuilder.append("\n\tFilter: ").append(((SGTIN96TagData) baseTagData).getFilter());
+                    stringBuilder.append("\n\tCompanyPrefixLength: ").append(((SGTIN96TagData) baseTagData).getCompanyPrefixLength());
+                    stringBuilder.append("\n\tSerial Number: ").append(((SGTIN96TagData) baseTagData).getSerialNumber());
+                } else if (baseTagData instanceof UDCTagData) {
+                    stringBuilder.append("\n\tBarcode: ").append(baseTagData.getBarcode());
+                }
+                onUpdateLog(TAG, "didReadTagEx: " + stringBuilder.toString());
+            }
         };
     }
 
@@ -373,13 +442,24 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         newPostDataDelimiterCommand();
         newMemoryBankSelectionCommand();
         newOutputInterfaceCommand();
+        newBarcodeReadFormat();
+    }
+
+    @Override
+    protected void onNewB2ECommands() {
+        newReadTagExWithPassword();
+        newReadTagExCommand();
+        newWriteTagExWithPassword();
+        newWriteTagExCommand();
     }
 
     @Override
     protected void onNewSettingCommands() {
         newRfPowerCommand();
         newRfSensitivityCommand();
+        newRxDecodeTypeCommand();
         newSessionTargetCommand();
+        newLinkFrequencyCommand();
         newQCommand();
         newFrequencyCommand();
         newTagRemovedThresholdCommand();
@@ -403,13 +483,24 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mPostDataDelimiterCommand);
         mAdapter.add(mMemoryBankSelectionCommand);
         mAdapter.add(mOutputInterfacesCommand);
+        mAdapter.add(mBarcodeReadFormatCommand);
+    }
+
+    @Override
+    protected void onShowB2ECommands() {
+        mAdapter.add(mReadTagExWithPasswordCommand);
+        mAdapter.add(mReadTagExCommand);
+        mAdapter.add(mWriteTagExWithPasswordCommand);
+        mAdapter.add(mWriteTagExCommand);
     }
 
     @Override
     protected void onShowSettingViews() {
         mAdapter.add(mRfPowerCommand);
         mAdapter.add(mRfSensitivityCommand);
+        mAdapter.add(mRxDecodeTypeCommand);
         mAdapter.add(mSessionTargetCommand);
+        mAdapter.add(mLinkFrequencyCommand);
         mAdapter.add(mQCommand);
         mAdapter.add(mFrequencyCommand);
         mAdapter.add(mTagPresentedRepeatIntervalCommand);
@@ -459,13 +550,67 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         });
     }
 
+
+    private void newReadTagExWithPassword() {
+        mReadTagExWithPasswordCommand = new GeneralCommandItem("Read Tag Ex", null, "Read"
+                , new EditTextTitleParamData("Password", "00000000", "00000000"));//TODO max length 8 and number
+        mReadTagExWithPasswordCommand.setRightOnClickListener(v -> {
+            EditTextTitleParamData password = (EditTextTitleParamData) mReadTagExWithPasswordCommand.getViewDataArray()[0];
+            ((MU400H) mUhf).readTagEx(password.getSelected());
+        });
+    }
+
+    private void newReadTagExCommand() {
+        mReadTagExCommand = new GeneralCommandItem("Read Tag Ex", null, "Read");
+        mReadTagExCommand.setRightOnClickListener(v -> ((MU400H) mUhf).readTagEx());
+    }
+
+    private void newWriteTagExWithPassword() {
+        InterchangeableParamData<BaseTagData.EpcHeader> b2eTagData = getTagDataParams();
+        mWriteTagExWithPasswordCommand = new GeneralCommandItem("Write Tag Ex", null, "Write"
+                , new EditTextTitleParamData("Password", "00000000", "00000000")
+                , b2eTagData);
+        setB2EOnclickListener(mWriteTagExWithPasswordCommand, b2eTagData);
+        mWriteTagExWithPasswordCommand.setRightOnClickListener(v -> {
+            try {
+                EditTextTitleParamData accessPassword = (EditTextTitleParamData) mWriteTagExWithPasswordCommand.getViewDataArray()[0];
+                InterchangeableParamData tagDataParameters = (InterchangeableParamData) mWriteTagExWithPasswordCommand.getViewDataArray()[1];
+                BaseTagData baseTagData = getBaseTagData(tagDataParameters);
+                if (baseTagData != null) {
+                    ((MU400H) mUhf).writeTagEx(accessPassword.getSelected(), baseTagData);
+                }
+            } catch (ErrorParameterException e) {
+                e.printStackTrace();
+                Toaster.showToast(getContext(), e.getMessage(), LENGTH_LONG);
+            }
+        });
+    }
+
+    private void newWriteTagExCommand() {
+        InterchangeableParamData<BaseTagData.EpcHeader> b2eTagData = getTagDataParams();
+        mWriteTagExCommand = new GeneralCommandItem("Write Tag Ex", null, "Write", b2eTagData);
+        setB2EOnclickListener(mWriteTagExCommand, b2eTagData);
+        mWriteTagExCommand.setRightOnClickListener(v -> {
+            try {
+                InterchangeableParamData tagDataParameters = (InterchangeableParamData) mWriteTagExCommand.getViewDataArray()[0];
+                BaseTagData baseTagData = getBaseTagData(tagDataParameters);
+                if (baseTagData != null) {
+                    ((MU400H) mUhf).writeTagEx(baseTagData);
+                }
+            } catch (ErrorParameterException e) {
+                e.printStackTrace();
+                Toaster.showToast(getContext(), e.getMessage(), LENGTH_LONG);
+            }
+        });
+    }
+
     private void newEventTypeCommand() {
         EventTypesParamData mEventTypeParamData = new EventTypesParamData(
                 EVENT_TYPES, null
                 , SECOND_CHOICES);
         mEventTypeCommand = new GeneralCommandItem("Get/Set Event Type"
                 , mEventTypeParamData);
-        mEventTypeParamData.setOnFirstItemSelected(selected -> {
+        mEventTypeParamData.setOnFirstItemSelectedListener(selected -> {
             if (selected.equals(EVENT_TYPES[0])) {
                 mEventTypeParamData.setLastChoices(SECOND_CHOICES);
             } else if (selected.equals(EVENT_TYPES[1])) {
@@ -636,6 +781,26 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         });
     }
 
+    private void newLinkFrequencyCommand() {
+        mLinkFrequencyCommand = new GeneralCommandItem("Get/Set Link Frequency"
+                , new SpinnerParamData<>(LinkFrequency.class));
+        mLinkFrequencyCommand.setLeftOnClickListener(v -> mUhf.getLinkFrequency(mTemp));
+        mLinkFrequencyCommand.setRightOnClickListener(v -> {
+            SpinnerParamData viewData = (SpinnerParamData) mLinkFrequencyCommand.getViewDataArray()[0];
+            mUhf.setLinkFrequency(mTemp, (LinkFrequency) viewData.getSelected());
+        });
+    }
+
+    private void newRxDecodeTypeCommand() {
+        mRxDecodeTypeCommand = new GeneralCommandItem("Get/Set Rx Decode"
+                , new SpinnerParamData<>(RxDecodeType.class));
+        mRxDecodeTypeCommand.setLeftOnClickListener(v -> mUhf.getRxDecode(mTemp));
+        mRxDecodeTypeCommand.setRightOnClickListener(v -> {
+            SpinnerParamData viewData = (SpinnerParamData) mRxDecodeTypeCommand.getViewDataArray()[0];
+            mUhf.setRxDecode(mTemp, (RxDecodeType) viewData.getSelected());
+        });
+    }
+
     private void newRfPowerCommand() {
         mRfPowerCommand = new GeneralCommandItem("Get/Set RF Power"
                 , new SeekBarParamData(1, 27));
@@ -649,5 +814,79 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
     private void newGetFirmwareVersion() {
         mGetFwVersion = new GeneralCommandItem("Get Firmware Version", null, "Get");
         mGetFwVersion.setRightOnClickListener(v -> mUhf.getFirmwareVersion());
+    }
+
+    private void newBarcodeReadFormat() {
+        mBarcodeReadFormatCommand = new GeneralCommandItem("Get/Set Barcode Read Format"
+                , new SpinnerParamData<>(BarcodeFormat.class));
+        mBarcodeReadFormatCommand.setLeftOnClickListener(v -> ((MU400H) mUhf).getBarcodeReadFormat(mTemp));
+        mBarcodeReadFormatCommand.setRightOnClickListener(v -> {
+            SpinnerParamData spinnerParamData = (SpinnerParamData) mBarcodeReadFormatCommand.getViewDataArray()[0];
+            ((MU400H) mUhf).setBarcodeReadFormat(mTemp, (BarcodeFormat) spinnerParamData.getSelected());
+        });
+    }
+
+    private InterchangeableParamData<BaseTagData.EpcHeader> getTagDataParams() {
+        List<ParamData> b2eTagDataStructure = new ArrayList<>();
+        b2eTagDataStructure.add(new EditTextTitleParamData("Barcode", "GTIN8, 12, 13, and 14"));//TODO number only
+        b2eTagDataStructure.add(new SpinnerTitleParamData<>(Filter.class));
+        b2eTagDataStructure.add(new SpinnerTitleParamData<>(CompanyPrefixLength.class));
+        b2eTagDataStructure.add(new EditTextTitleParamData("Serial Number", "", "1"));//TODO number only
+        InterchangeableParamData<BaseTagData.EpcHeader> b2eTagData = new InterchangeableParamData<>("Epc Type", new BaseTagData.EpcHeader[]{EPC_SGTIN96, EPC_EAS, EPC_UDC}, b2eTagDataStructure);
+        return b2eTagData;
+    }
+
+    private void setB2EOnclickListener(GeneralCommandItem generalCommandItem, InterchangeableParamData<BaseTagData.EpcHeader> b2eTagData) {
+        b2eTagData.setOnFirstItemSelectedListener(selected -> {
+            List<ParamData> b2eTagDataStructure = b2eTagData.getParamData();
+            b2eTagDataStructure.clear();
+            switch ((BaseTagData.EpcHeader) selected) {
+                case EPC_SGTIN96:
+                    b2eTagDataStructure.add(new EditTextTitleParamData("Barcode", "GTIN8, 12, 13, and 14"));//TODO number only
+                    b2eTagDataStructure.add(new SpinnerTitleParamData<>(Filter.class));
+                    b2eTagDataStructure.add(new SpinnerTitleParamData<>(CompanyPrefixLength.class));
+                    b2eTagDataStructure.add(new EditTextTitleParamData("Serial Number", "", "1"));//TODO number only
+                    break;
+                case EPC_EAS:
+                    b2eTagDataStructure.add(new EditTextTitleParamData("Barcode", "GTIN8, 12, 13, and 14"));//TODO number only
+                    b2eTagDataStructure.add(new SpinnerTitleParamData<>(Filter.class));
+                    b2eTagDataStructure.add(new SpinnerTitleParamData<>(CompanyPrefixLength.class));
+                    break;
+                case EPC_UDC:
+                    b2eTagDataStructure.add(new EditTextTitleParamData("Barcode", ""));
+                    break;
+            }
+            mAdapter.notifyItemChanged(generalCommandItem.getPosition());
+        });
+    }
+
+    private BaseTagData getBaseTagData(InterchangeableParamData tagDataParameters) throws ErrorParameterException {
+        List<ParamData> data = tagDataParameters.getParamData();
+        switch ((BaseTagData.EpcHeader) tagDataParameters.getSelected()) {
+            case EPC_SGTIN96:
+                EditTextTitleParamData barcodeParameter = (EditTextTitleParamData) data.get(0);
+                SpinnerTitleParamData filter = (SpinnerTitleParamData) data.get(1);
+                SpinnerTitleParamData companyPrefixLength = (SpinnerTitleParamData) data.get(2);
+                EditTextTitleParamData serialNumber = (EditTextTitleParamData) data.get(3);
+                if (isDigital(serialNumber.getSelected())) {
+                    return new SGTIN96TagData(barcodeParameter.getSelected()
+                            , (Filter) filter.getSelected()
+                            , (CompanyPrefixLength) companyPrefixLength.getSelected()
+                            , Long.parseLong(serialNumber.getSelected()));
+                }
+                Toaster.showToast(getContext(), "Serial Number should be positive integer", LENGTH_LONG);
+                break;
+            case EPC_EAS:
+                barcodeParameter = (EditTextTitleParamData) data.get(0);
+                filter = (SpinnerTitleParamData) data.get(1);
+                companyPrefixLength = (SpinnerTitleParamData) data.get(2);
+                return new SGTIN96EASTagData(barcodeParameter.getSelected()
+                        , (Filter) filter.getSelected()
+                        , (CompanyPrefixLength) companyPrefixLength.getSelected());
+            case EPC_UDC:
+                barcodeParameter = (EditTextTitleParamData) data.get(0);
+                return new UDCTagData(barcodeParameter.getSelected());
+        }
+        return null;
     }
 }
