@@ -1,6 +1,5 @@
 package com.gigatms.uhf;
 
-import android.Manifest;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -32,6 +31,8 @@ import com.gigatms.tools.GLog;
 import java.util.Arrays;
 import java.util.Objects;
 
+import static android.Manifest.permission.ACCESS_FINE_LOCATION;
+import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 import static com.gigatms.CommunicationType.BLE;
 import static com.gigatms.CommunicationType.UDP;
 import static com.gigatms.CommunicationType.USB;
@@ -45,6 +46,7 @@ import static com.gigatms.UHF.UhfClassVersion.UR0250;
 
 public class DeviceScanFragment extends BaseScanFragment {
     private static final String TAG = DeviceScanFragment.class.getSimpleName();
+    public static final String[] PRODUCTS = {TS800.name(), TS100A.name(), TS100.name(), MU400H.name(), UR0250.name(), NR800.name(), PWD100.name()};
     private final int REQUEST_COARSE_LOCATION = 99;
 
     @Override
@@ -80,7 +82,7 @@ public class DeviceScanFragment extends BaseScanFragment {
 
     @Override
     public void hookAddSpnProducts() {
-        addSpnProducts(new String[]{TS800.name(), TS100A.name(), TS100.name(), MU400H.name(), UR0250.name(), NR800.name(), PWD100.name()});
+        addSpnProducts(PRODUCTS);
         mSpnProduct.setSelection(0);
         ((UHFScanner) mBaseScanner).setClassVersion(UhfClassVersion.TS800);
     }
@@ -127,8 +129,8 @@ public class DeviceScanFragment extends BaseScanFragment {
     public void requestNeededPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (getActivity() != null) {
-                if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_COARSE_LOCATION);
+                if (ContextCompat.checkSelfPermission(getActivity(), ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(getActivity(), new String[]{ACCESS_FINE_LOCATION, WRITE_EXTERNAL_STORAGE}, REQUEST_COARSE_LOCATION);
                 }
             }
         }

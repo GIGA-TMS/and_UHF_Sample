@@ -1,3 +1,27 @@
+# 2.3.0
+Influence Products: TS800, TS100A, TS100, MU400H
+
+## TS800, TS800-00 ROM-T1888 V1.00R1(2202140)
+
+#### ADD
+* USB Channel
+
+## TS100, TS100A-00 ROM-T1849 V1.09r6(2001080)
+
+#### Refactor
+* getMemoryBankSelection(Set<MemoryBankSelection> selection) -> getTagMemorySelection(Set<TagMemory> tagMemory)
+* setMemoryBankSelection(Set<MemoryBankSelection> selection) -> setTagMemorySelection(Set<TagMemory> tagMemory)
+
+## MU400h, MU400H-00 ROM-T1870 V1.00r8(1912310)
+
+#### Refactor
+* getMemoryBankSelection(Set<MemoryBankSelection> selection) -> getTagMemorySelection(Set<TagMemory> tagMemory)
+* setMemoryBankSelection(Set<MemoryBankSelection> selection) -> setTagMemorySelection(Set<TagMemory> tagMemory)
+
+#### Refactor
+* getMemoryBankSelection(Set<MemoryBankSelection> selection) -> getTagMemorySelection(Set<TagMemory> tagMemory)
+* setMemoryBankSelection(Set<MemoryBankSelection> selection) -> setTagMemorySelection(Set<TagMemory> tagMemory)
+
 # 2.2.0
 Influence Products: TS100, TS800, UR0250, PWD100, MU400H, NR800
 

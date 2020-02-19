@@ -1,3 +1,15 @@
+# V 2.0.3 (SDK V2.3.0)
+
+## TS100, TS100A-00 ROM-T1849 V1.09r6(2001080)
+### Advance Page
+#### Rename
+* Get/Set Memory Bank Selection -> Get/Set Tag Memory Selection
+
+## MU400h, MU400H-00 ROM-T1870 V1.00r8(1912310)
+### Advance Page
+#### Rename
+* Get/Set Memory Bank Selection -> Get/Set Tag Memory Selection
+
 # V 2.0.2 (SDK V2.2.0)
 Influence Products: TS100, TS800, UR0250, PWD100, MU400H, NR800
 
