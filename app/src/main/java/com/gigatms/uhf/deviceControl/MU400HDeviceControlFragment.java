@@ -26,7 +26,6 @@ import com.gigatms.parameters.IOState;
 import com.gigatms.parameters.KeyboardSimulation;
 import com.gigatms.parameters.LinkFrequency;
 import com.gigatms.parameters.MemoryBank;
-import com.gigatms.parameters.MemoryBankSelection;
 import com.gigatms.parameters.OutputInterface;
 import com.gigatms.parameters.PostDataDelimiter;
 import com.gigatms.parameters.RfSensitivityLevel;
@@ -34,6 +33,7 @@ import com.gigatms.parameters.RxDecodeType;
 import com.gigatms.parameters.Session;
 import com.gigatms.parameters.TagDataEncodeType;
 import com.gigatms.parameters.TagInformationFormat;
+import com.gigatms.parameters.TagMemory;
 import com.gigatms.parameters.TagPresentedType;
 import com.gigatms.parameters.Target;
 import com.gigatms.parameters.b2e.BaseTagData;
@@ -61,13 +61,13 @@ import java.util.regex.Pattern;
 import static android.widget.Toast.LENGTH_LONG;
 import static com.gigatms.parameters.KeyboardSimulation.DISABLE;
 import static com.gigatms.parameters.KeyboardSimulation.HID_KEYBOARD;
-import static com.gigatms.parameters.MemoryBankSelection.EPC_ASCII;
 import static com.gigatms.parameters.OutputInterface.HID_N_VCOM;
 import static com.gigatms.parameters.Session.SL;
 import static com.gigatms.parameters.TagDataEncodeType.EAN_UPC;
 import static com.gigatms.parameters.TagDataEncodeType.EAN_UPC_EAS;
 import static com.gigatms.parameters.TagDataEncodeType.RAW_DATA;
 import static com.gigatms.parameters.TagDataEncodeType.UDC;
+import static com.gigatms.parameters.TagMemory.EPC_ASCII;
 import static com.gigatms.parameters.b2e.BaseTagData.EpcHeader.EPC_EAS;
 import static com.gigatms.parameters.b2e.BaseTagData.EpcHeader.EPC_SGTIN96;
 import static com.gigatms.parameters.b2e.BaseTagData.EpcHeader.EPC_UDC;
@@ -103,7 +103,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
     private GeneralCommandItem mEventTypeCommand;
     private GeneralCommandItem mFilterCommand;
     private GeneralCommandItem mPostDataDelimiterCommand;
-    private GeneralCommandItem mMemoryBankSelectionCommand;
+    private GeneralCommandItem mTagMemorySelectionCommand;
     private GeneralCommandItem mOutputInterfacesCommand;
     private GeneralCommandItem mBarcodeReadFormatCommand;
 
@@ -328,11 +328,11 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
             }
 
             @Override
-            public void didGetMemoryBankSelection(Set<MemoryBankSelection> memoryBankSelections) {
-                CheckboxListParamData selected1 = (CheckboxListParamData) mMemoryBankSelectionCommand.getViewDataArray()[0];
-                selected1.setSelected(memoryBankSelections);
-                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mMemoryBankSelectionCommand.getPosition()));
-                onUpdateLog(TAG, "didGetMemoryBankSelection: " + memoryBankSelections);
+            public void didGetTagMemorySelection(Set<TagMemory> tagMemories) {
+                CheckboxListParamData selected1 = (CheckboxListParamData) mTagMemorySelectionCommand.getViewDataArray()[0];
+                selected1.setSelected(tagMemories);
+                mRecyclerView.post(() -> mAdapter.notifyItemChanged(mTagMemorySelectionCommand.getPosition()));
+                onUpdateLog(TAG, "didGetTagMemorySelection: " + tagMemories);
             }
 
             @Override
@@ -481,7 +481,7 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
         mAdapter.add(mEventTypeCommand);
         mAdapter.add(mFilterCommand);
         mAdapter.add(mPostDataDelimiterCommand);
-        mAdapter.add(mMemoryBankSelectionCommand);
+        mAdapter.add(mTagMemorySelectionCommand);
         mAdapter.add(mOutputInterfacesCommand);
         mAdapter.add(mBarcodeReadFormatCommand);
     }
@@ -660,13 +660,13 @@ public class MU400HDeviceControlFragment extends DeviceControlFragment {
     }
 
     private void newMemoryBankSelectionCommand() {
-        mMemoryBankSelectionCommand = new GeneralCommandItem("Get/Set Memory Bank Selection"
-                , new CheckboxListParamData<>(EnumSet.range(MemoryBankSelection.PC, EPC_ASCII)));
-        mMemoryBankSelectionCommand.setLeftOnClickListener(v -> ((MU400H) mUhf).getMemoryBankSelection(mTemp));
+        mTagMemorySelectionCommand = new GeneralCommandItem("Get/Set Tag Memory Selection"
+                , new CheckboxListParamData<>(EnumSet.range(TagMemory.PC, EPC_ASCII)));
+        mTagMemorySelectionCommand.setLeftOnClickListener(v -> ((MU400H) mUhf).getTagMemorySelection(mTemp));
 
-        mMemoryBankSelectionCommand.setRightOnClickListener(v -> {
-            CheckboxListParamData viewData = (CheckboxListParamData) mMemoryBankSelectionCommand.getViewDataArray()[0];
-            ((MU400H) mUhf).setMemoryBankSelection(mTemp, viewData.getSelected());
+        mTagMemorySelectionCommand.setRightOnClickListener(v -> {
+            CheckboxListParamData viewData = (CheckboxListParamData) mTagMemorySelectionCommand.getViewDataArray()[0];
+            ((MU400H) mUhf).setTagMemorySelection(mTemp, viewData.getSelected());
         });
     }
 
